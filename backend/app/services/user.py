@@ -1,0 +1,34 @@
+from app.database import users_collection
+from app.schemas.user import UserCreate, Vehicle
+from app.security.auth import hash_password
+from bson import ObjectId
+
+async def get_user_by_username(username: str):
+    """Fetch a user by username."""
+    user = await users_collection.find_one({"username": username})
+    if user:
+        user["_id"] = str(user["_id"])  # Convert ObjectId to string
+    return user
+
+
+async def create_user(user: UserCreate):
+    """Create a new user with vehicles and hashed password."""
+    hashed_password = hash_password(user.password)
+
+    new_user = {
+        "username": user.username,
+        "email": user.email,
+        "password": hashed_password,
+        "vehicles": [vehicle.model_dump() for vehicle in user.vehicles]  # Convert Pydantic models to dicts
+    }
+
+    result = await users_collection.insert_one(new_user)
+    return {"id": str(result.inserted_id), "username": user.username, "email": user.email}
+
+async def add_vehicle(username: str, vehicle: Vehicle):
+    """Add a vehicle to an existing user."""
+    result = await users_collection.update_one(
+        {"username": username},
+        {"$push": {"vehicles": vehicle.model_dump()}}
+    )
+    return result.modified_count > 0  # Returns True if updated

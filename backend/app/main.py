@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from app.routes import user, charging_station
 
 app = FastAPI()
 
@@ -11,3 +12,6 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
+
+app.include_router(user.router, prefix="/auth", tags=["Auth"])
+app.include_router(charging_station.router, prefix="/api", tags=["Charging Stations"])
