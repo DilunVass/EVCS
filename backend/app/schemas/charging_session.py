@@ -14,6 +14,7 @@ class ChargingSession(BaseModel):
     end_time: Optional[datetime] = None
     initial_charge_level: float = Field(ge=0, le=100, description="Initial battery level percentage")
     final_charge_level: Optional[float] = Field(None, ge=0, le=100, description="Final battery level percentage")
+    current_charge_level: Optional[float] = Field(None, ge=0, le=100, description="Current battery level percentage")
     energy_consumed: Optional[float] = Field(None, ge=0, description="Energy consumed in kWh")
     cost: Optional[float] = Field(None, ge=0, description="Total cost of charging session")
     status: Literal["active", "completed", "interrupted", "error"] = "active"
@@ -40,6 +41,7 @@ class ChargingSessionCreate(BaseModel):
 class ChargingSessionUpdate(BaseModel):
     """Schema for updating a charging session."""
     final_charge_level: Optional[float] = Field(None, ge=0, le=100)
+    current_charge_level: Optional[float] = Field(None, ge=0, le=100)
     energy_consumed: Optional[float] = Field(None, ge=0)
     cost: Optional[float] = Field(None, ge=0)
     status: Optional[Literal["active", "completed", "interrupted", "error"]] = None
@@ -57,6 +59,7 @@ class ChargingSessionResponse(BaseModel):
     end_time: Optional[str] = None
     initial_charge_level: float
     final_charge_level: Optional[float] = None
+    current_charge_level: Optional[float] = None
     energy_consumed: Optional[float] = None
     cost: Optional[float] = None
     status: str

@@ -7,4 +7,6 @@ db = client[DATABASE_NAME]
 # Collections
 users_collection = db["users"]
 charging_stations_collection = db["charging_stations"]
-charging_sessions_collection = db["charging_sessions"] 
+charging_sessions_collection = db["charging_sessions"]
+payments_collection = db["payments"]
+refunds_collection = db["refunds"]
