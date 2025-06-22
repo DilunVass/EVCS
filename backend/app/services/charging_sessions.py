@@ -81,8 +81,9 @@ async def get_all_charging_sessions(
         
         # Calculate duration if session is completed
         if session.get("end_time") and session.get("start_time"):
-            duration = session["end_time"] - session["start_time"]
-            session["duration_minutes"] = int(duration.total_seconds() / 60)
+            if isinstance(session["end_time"], datetime) and isinstance(session["start_time"], datetime):
+                duration = session["end_time"] - session["start_time"]
+                session["duration_minutes"] = int(duration.total_seconds() / 60)
         
         sessions.append(session)
     
@@ -98,8 +99,9 @@ async def get_charging_session_by_id(session_id: str) -> Optional[dict]:
             
             # Calculate duration if session is completed
             if session.get("end_time") and session.get("start_time"):
-                duration = session["end_time"] - session["start_time"]
-                session["duration_minutes"] = int(duration.total_seconds() / 60)
+                if isinstance(session["end_time"], datetime) and isinstance(session["start_time"], datetime):
+                    duration = session["end_time"] - session["start_time"]
+                    session["duration_minutes"] = int(duration.total_seconds() / 60)
         
         return session
     except:
@@ -159,7 +161,10 @@ async def complete_charging_session(
         if energy_consumed is None:
             station = await charging_stations_collection.find_one({"_id": ObjectId(session["station_id"])})
             if station:
-                duration_hours = (end_time - start_time).total_seconds() / 3600
+                if isinstance(start_time, datetime):
+                    duration_hours = (end_time - start_time).total_seconds() / 3600
+                else:
+                    duration_hours = 1  # Default fallback
                 charge_increase = final_charge_level - session["initial_charge_level"]
                 # Estimate energy based on charge increase (assuming average battery capacity)
                 estimated_battery_capacity = 60  # kWh average

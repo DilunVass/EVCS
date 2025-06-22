@@ -20,9 +20,9 @@ class User(BaseModel):
     class Config:
         """Configuration for the User model."""
         json_encoders = {
-            ObjectId: str  # Convert ObjectId to string for JSON serialization
+            ObjectId: str
         }
-        allow_population_by_field_name = True
+        populate_by_name = True
         arbitrary_types_allowed = True
 
 class UserCreate(BaseModel):
@@ -30,7 +30,7 @@ class UserCreate(BaseModel):
     email: EmailStr
     password: str
     role: Literal["user", "admin"] = "user"
-    vehicles: List[Vehicle] = []  # Added vehicles field
+    vehicles: List[Vehicle] = []
 
 class UserLogin(BaseModel):
     """Schema for user login."""

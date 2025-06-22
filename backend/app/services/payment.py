@@ -11,13 +11,26 @@ from datetime import datetime
 from typing import List, Optional, Dict, Any
 from cryptography.fernet import Fernet
 import os
-import json
 import secrets
 import string
 
-# Encryption key (should be stored securely in environment variables)
-ENCRYPTION_KEY = os.getenv("PAYMENT_ENCRYPTION_KEY", Fernet.generate_key())
-cipher_suite = Fernet(ENCRYPTION_KEY) if isinstance(ENCRYPTION_KEY, bytes) else Fernet(ENCRYPTION_KEY.encode())
+# Generate or get encryption key
+def get_encryption_key():
+    """Get or generate a proper Fernet encryption key."""
+    key_from_env = os.getenv("PAYMENT_ENCRYPTION_KEY")
+    
+    if key_from_env:
+        try:
+            return Fernet(key_from_env.encode() if isinstance(key_from_env, str) else key_from_env)
+        except ValueError:
+            print("Invalid encryption key in environment, generating new one...")
+    
+    key = Fernet.generate_key()
+    print(f"Generated new encryption key: {key.decode()}")
+    print("Add this to your environment variables: PAYMENT_ENCRYPTION_KEY=" + key.decode())
+    return Fernet(key)
+
+cipher_suite = get_encryption_key()
 
 def encrypt_sensitive_data(data: str) -> str:
     """Encrypt sensitive payment data."""
@@ -38,68 +51,54 @@ def generate_transaction_id() -> str:
     """Generate a unique transaction ID."""
     return 'TXN_' + ''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(12))
 
-def mask_card_number(card_number: str) -> str:
-    """Mask card number showing only last 4 digits."""
-    if not card_number or len(card_number) < 4:
-        return "****"
-    return "*" * (len(card_number) - 4) + card_number[-4:]
+def convert_payment_datetime_fields(payment: dict) -> dict:
+    """Convert datetime fields in payment to strings."""
+    datetime_fields = ['created_at', 'updated_at', 'processed_at']
+    
+    for field in datetime_fields:
+        if field in payment and payment[field] is not None:
+            if isinstance(payment[field], datetime):
+                payment[field] = payment[field].isoformat()
+    
+    return payment
 
-async def create_payment(payment: PaymentCreate, user_id: str) -> dict:
-    """Create a new payment record with encrypted sensitive data."""
-    current_time = datetime.utcnow()
-    
-    # Verify session exists and belongs to user
-    session = await charging_sessions_collection.find_one({"_id": ObjectId(payment.session_id)})
-    if not session:
-        raise ValueError("Charging session not found")
-    
-    if session["user_id"] != user_id:
-        raise ValueError("Session does not belong to the user")
-    
-    # Check if payment already exists for this session
-    existing_payment = await payments_collection.find_one({"session_id": payment.session_id})
-    if existing_payment:
-        raise ValueError("Payment already exists for this session")
-    
-    # Encrypt sensitive data
-    encrypted_card_number = encrypt_sensitive_data(payment.card_number) if payment.card_number else None
-    encrypted_cvv = encrypt_sensitive_data(payment.cvv) if payment.cvv else None
-    encrypted_cardholder_name = encrypt_sensitive_data(payment.cardholder_name) if payment.cardholder_name else None
-    
-    # Prepare payment method with masked card number
-    payment_method_data = payment.payment_method.model_dump()
-    if payment.card_number:
-        payment_method_data["last_four_digits"] = payment.card_number[-4:] if len(payment.card_number) >= 4 else "****"
-    
-    new_payment = {
-        "session_id": payment.session_id,
-        "user_id": user_id,
-        "amount": payment.amount,
-        "currency": payment.currency,
-        "payment_method": payment_method_data,
-        "status": "pending",
-        "transaction_id": generate_transaction_id(),
-        "encrypted_card_number": encrypted_card_number,
-        "encrypted_cvv": encrypted_cvv,
-        "encrypted_cardholder_name": encrypted_cardholder_name,
-        "created_at": current_time,
-        "updated_at": current_time
-    }
-    
-    result = await payments_collection.insert_one(new_payment)
-    
-    # Update session payment status
-    await charging_sessions_collection.update_one(
-        {"_id": ObjectId(payment.session_id)},
-        {"$set": {"payment_status": "pending", "updated_at": current_time}}
-    )
-    
-    return {
-        "id": str(result.inserted_id),
-        "transaction_id": new_payment["transaction_id"],
-        "status": "pending",
-        "amount": payment.amount
-    }
+async def get_all_payments(
+    user_id: Optional[str] = None,
+    status: Optional[str] = None,
+    limit: int = 100,
+    skip: int = 0,
+    admin_view: bool = False
+) -> List[dict]:
+    """Get all payments with optional filters."""
+    try:
+        query = {}
+        
+        if user_id:
+            query["user_id"] = user_id
+        if status:
+            query["status"] = status
+        
+        payments = []
+        async for payment in payments_collection.find(query).skip(skip).limit(limit).sort("created_at", -1):
+            payment["id"] = str(payment["_id"])
+            del payment["_id"]
+            
+            # Remove encrypted fields from response unless admin view
+            if not admin_view:
+                payment.pop("encrypted_card_number", None)
+                payment.pop("encrypted_cvv", None)
+                payment.pop("encrypted_cardholder_name", None)
+                payment.pop("gateway_response", None)
+            
+            # Convert datetime fields manually
+            payment = convert_payment_datetime_fields(payment)
+            
+            payments.append(payment)
+        
+        return payments
+    except Exception as e:
+        print(f"Error in get_all_payments: {e}")
+        return []
 
 async def get_payment_by_id(payment_id: str, decrypt_data: bool = False) -> Optional[dict]:
     """Get payment by ID with optional decryption (admin only)."""
@@ -117,41 +116,88 @@ async def get_payment_by_id(payment_id: str, decrypt_data: bool = False) -> Opti
                     payment["decrypted_cvv"] = decrypt_sensitive_data(payment["encrypted_cvv"])
                 if payment.get("encrypted_cardholder_name"):
                     payment["decrypted_cardholder_name"] = decrypt_sensitive_data(payment["encrypted_cardholder_name"])
-        
-        return payment
-    except:
+            else:
+                # Remove sensitive data
+                payment.pop("encrypted_card_number", None)
+                payment.pop("encrypted_cvv", None)
+                payment.pop("encrypted_cardholder_name", None)
+            
+            # Convert datetime fields manually
+            payment = convert_payment_datetime_fields(payment)
+            
+            return payment
+        return None
+    except Exception as e:
+        print(f"Error in get_payment_by_id: {e}")
         return None
 
-async def get_all_payments(
-    user_id: Optional[str] = None,
-    status: Optional[str] = None,
-    limit: int = 100,
-    skip: int = 0,
-    admin_view: bool = False
-) -> List[dict]:
-    """Get all payments with optional filters."""
-    query = {}
-    
-    if user_id:
-        query["user_id"] = user_id
-    if status:
-        query["status"] = status
-    
-    payments = []
-    async for payment in payments_collection.find(query).skip(skip).limit(limit).sort("created_at", -1):
-        payment["id"] = str(payment["_id"])
-        del payment["_id"]
+async def create_payment(payment: PaymentCreate, user_id: str) -> dict:
+    """Create a new payment record with encrypted sensitive data."""
+    try:
+        current_time = datetime.utcnow()
         
-        # Remove encrypted fields from response unless admin view
-        if not admin_view:
-            payment.pop("encrypted_card_number", None)
-            payment.pop("encrypted_cvv", None)
-            payment.pop("encrypted_cardholder_name", None)
-            payment.pop("gateway_response", None)
+        # Verify session exists and belongs to user
+        try:
+            session = await charging_sessions_collection.find_one({"_id": ObjectId(payment.session_id)})
+        except Exception as e:
+            raise ValueError(f"Invalid session ID format: {payment.session_id}")
         
-        payments.append(payment)
-    
-    return payments
+        if not session:
+            raise ValueError(f"Charging session {payment.session_id} not found")
+        
+        if session["user_id"] != user_id:
+            raise ValueError("Session does not belong to the current user")
+        
+        # Check if payment already exists for this session
+        existing_payment = await payments_collection.find_one({"session_id": payment.session_id})
+        if existing_payment:
+            raise ValueError("Payment already exists for this session")
+        
+        # Encrypt sensitive data
+        encrypted_card_number = encrypt_sensitive_data(payment.card_number) if payment.card_number else None
+        encrypted_cvv = encrypt_sensitive_data(payment.cvv) if payment.cvv else None
+        encrypted_cardholder_name = encrypt_sensitive_data(payment.cardholder_name) if payment.cardholder_name else None
+        
+        # Prepare payment method with masked card number
+        payment_method_data = payment.payment_method.model_dump()
+        if payment.card_number:
+            payment_method_data["last_four_digits"] = payment.card_number[-4:] if len(payment.card_number) >= 4 else "****"
+        
+        new_payment = {
+            "session_id": payment.session_id,
+            "user_id": user_id,
+            "amount": payment.amount,
+            "currency": payment.currency,
+            "payment_method": payment_method_data,
+            "status": "pending",
+            "transaction_id": generate_transaction_id(),
+            "encrypted_card_number": encrypted_card_number,
+            "encrypted_cvv": encrypted_cvv,
+            "encrypted_cardholder_name": encrypted_cardholder_name,
+            "created_at": current_time,
+            "updated_at": current_time
+        }
+        
+        result = await payments_collection.insert_one(new_payment)
+        
+        # Update session payment status
+        await charging_sessions_collection.update_one(
+            {"_id": ObjectId(payment.session_id)},
+            {"$set": {"payment_status": "pending", "updated_at": current_time}}
+        )
+        
+        return {
+            "id": str(result.inserted_id),
+            "transaction_id": new_payment["transaction_id"],
+            "status": "pending",
+            "amount": payment.amount,
+            "currency": payment.currency
+        }
+        
+    except ValueError as e:
+        raise e
+    except Exception as e:
+        raise ValueError(f"Failed to create payment: {str(e)}")
 
 async def update_payment(payment_id: str, payment_update: PaymentUpdate) -> bool:
     """Update payment status and details."""
@@ -181,59 +227,8 @@ async def update_payment(payment_id: str, payment_update: PaymentUpdate) -> bool
             
             return result.modified_count > 0
         return False
-    except:
-        return False
-
-async def process_payment(payment_id: str) -> bool:
-    """Process a payment (simulate payment gateway)."""
-    try:
-        payment = await get_payment_by_id(payment_id, decrypt_data=True)
-        if not payment or payment["status"] != "pending":
-            return False
-        
-        # Simulate payment processing
-        import random
-        success = random.choice([True, True, True, False])  # 75% success rate for demo
-        
-        current_time = datetime.utcnow()
-        
-        if success:
-            update_data = {
-                "status": "completed",
-                "processed_at": current_time,
-                "gateway_response": {
-                    "gateway": "demo_gateway",
-                    "response_code": "00",
-                    "response_message": "Transaction successful"
-                },
-                "updated_at": current_time
-            }
-        else:
-            update_data = {
-                "status": "failed",
-                "processed_at": current_time,
-                "failure_reason": "Insufficient funds",
-                "gateway_response": {
-                    "gateway": "demo_gateway",
-                    "response_code": "51",
-                    "response_message": "Insufficient funds"
-                },
-                "updated_at": current_time
-            }
-        
-        result = await payments_collection.update_one(
-            {"_id": ObjectId(payment_id)},
-            {"$set": update_data}
-        )
-        
-        # Update session payment status
-        await charging_sessions_collection.update_one(
-            {"_id": ObjectId(payment["session_id"])},
-            {"$set": {"payment_status": update_data["status"]}}
-        )
-        
-        return result.modified_count > 0
-    except:
+    except Exception as e:
+        print(f"Error in update_payment: {e}")
         return False
 
 async def get_payment_history(
@@ -243,19 +238,6 @@ async def get_payment_history(
 ) -> PaymentHistory:
     """Get payment history with analytics (admin only)."""
     try:
-        query = {}
-        
-        if start_date or end_date:
-            date_query = {}
-            if start_date:
-                date_query["$gte"] = start_date
-            if end_date:
-                date_query["$lte"] = end_date
-            query["created_at"] = date_query
-            
-        if user_id:
-            query["user_id"] = user_id
-        
         # Get all payments
         payments = await get_all_payments(
             user_id=user_id, 
@@ -278,7 +260,8 @@ async def get_payment_history(
             failed_payments=failed_payments,
             pending_payments=pending_payments
         )
-    except:
+    except Exception as e:
+        print(f"Error in get_payment_history: {e}")
         return PaymentHistory(
             payments=[],
             total_payments=0,
@@ -288,87 +271,71 @@ async def get_payment_history(
             pending_payments=0
         )
 
-async def get_user_payment_summary(user_id: str, limit: int = 50) -> List[UserPaymentSummary]:
+async def get_user_payment_summary(user_id: str, limit: int = 50) -> List[dict]:
     """Get user's payment summary (limited view without sensitive data)."""
     try:
         payments = await get_all_payments(user_id=user_id, limit=limit, admin_view=False)
         
         summary = []
         for payment in payments:
-            summary.append(UserPaymentSummary(
-                id=payment["id"],
-                session_id=payment["session_id"],
-                amount=payment["amount"],
-                currency=payment["currency"],
-                status=payment["status"],
-                created_at=payment.get("created_at")
-            ))
+            summary.append({
+                "id": payment["id"],
+                "session_id": payment["session_id"],
+                "amount": payment["amount"],
+                "currency": payment["currency"],
+                "status": payment["status"],
+                "created_at": payment.get("created_at")  # Already converted to string
+            })
         
         return summary
-    except:
+    except Exception as e:
+        print(f"Error in get_user_payment_summary: {e}")
         return []
 
-async def create_refund(refund_request: RefundRequest, admin_user_id: str) -> dict:
-    """Create a refund request (admin only)."""
+async def process_refund(refund_request: RefundRequest) -> dict:
+    """Process a refund request."""
     try:
-        payment = await get_payment_by_id(refund_request.payment_id)
-        if not payment or payment["status"] != "completed":
-            raise ValueError("Payment not found or not eligible for refund")
+        # Get the original payment
+        payment = await payments_collection.find_one({"_id": ObjectId(refund_request.payment_id)})
+        if not payment:
+            raise ValueError("Payment not found")
         
-        refund_amount = refund_request.amount or payment["amount"]
-        if refund_amount > payment["amount"]:
-            raise ValueError("Refund amount cannot exceed payment amount")
+        if payment["status"] != "completed":
+            raise ValueError("Can only refund completed payments")
+        
+        # Check if already refunded
+        existing_refund = await refunds_collection.find_one({"payment_id": refund_request.payment_id})
+        if existing_refund:
+            raise ValueError("Payment already has a refund request")
         
         current_time = datetime.utcnow()
+        refund_amount = refund_request.amount if refund_request.amount else payment["amount"]
         
         new_refund = {
             "payment_id": refund_request.payment_id,
-            "amount": refund_amount,
+            "original_amount": payment["amount"],
+            "refund_amount": refund_amount,
             "reason": refund_request.reason,
             "status": "pending",
-            "requested_by": admin_user_id,
             "created_at": current_time,
             "updated_at": current_time
         }
         
         result = await refunds_collection.insert_one(new_refund)
         
+        # Update payment status
+        await payments_collection.update_one(
+            {"_id": ObjectId(refund_request.payment_id)},
+            {"$set": {"status": "refunded", "updated_at": current_time}}
+        )
+        
         return {
-            "id": str(result.inserted_id),
+            "refund_id": str(result.inserted_id),
             "status": "pending",
             "amount": refund_amount
         }
+        
+    except ValueError as e:
+        raise e
     except Exception as e:
-        raise ValueError(str(e))
-
-async def process_refund(refund_id: str) -> bool:
-    """Process a refund (admin only)."""
-    try:
-        refund = await refunds_collection.find_one({"_id": ObjectId(refund_id)})
-        if not refund or refund["status"] != "pending":
-            return False
-        
-        current_time = datetime.utcnow()
-        
-        # Update refund status
-        await refunds_collection.update_one(
-            {"_id": ObjectId(refund_id)},
-            {"$set": {
-                "status": "processed",
-                "processed_at": current_time,
-                "updated_at": current_time
-            }}
-        )
-        
-        # Update payment status
-        await payments_collection.update_one(
-            {"_id": ObjectId(refund["payment_id"])},
-            {"$set": {
-                "status": "refunded",
-                "updated_at": current_time
-            }}
-        )
-        
-        return True
-    except:
-        return False
+        raise ValueError(f"Failed to process refund: {str(e)}")

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_serializer
 from typing import Optional, Literal
 from datetime import datetime
 from bson import ObjectId
@@ -55,7 +55,7 @@ class ChargingSessionResponse(BaseModel):
     slot_id: int
     user_id: str
     vehicle_number: str
-    start_time: str
+    start_time: Optional[str] = None
     end_time: Optional[str] = None
     initial_charge_level: float
     final_charge_level: Optional[float] = None
@@ -67,6 +67,14 @@ class ChargingSessionResponse(BaseModel):
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
     duration_minutes: Optional[int] = None
+
+    @field_serializer('start_time', 'end_time', 'created_at', 'updated_at')
+    def serialize_datetime(self, dt, _info) -> Optional[str]:
+        if dt is None:
+            return None
+        if isinstance(dt, datetime):
+            return dt.isoformat()
+        return dt
 
     class Config:
         from_attributes = True

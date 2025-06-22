@@ -30,12 +30,22 @@ async def create_charging_station(station: ChargingStationCreate) -> dict:
         "location": station.location
     }
 
+def convert_datetime_to_string(station: dict) -> dict:
+    """Convert datetime objects to ISO strings."""
+    if station.get("created_at"):
+        station["created_at"] = station["created_at"].isoformat()
+    if station.get("updated_at"):
+        station["updated_at"] = station["updated_at"].isoformat()
+    return station
+
 async def get_all_charging_stations() -> List[dict]:
     """Get all charging stations."""
     stations = []
     async for station in charging_stations_collection.find():
         station["id"] = str(station["_id"])
         del station["_id"]
+        # Convert datetime objects to strings
+        station = convert_datetime_to_string(station)
         stations.append(station)
     return stations
 
@@ -46,6 +56,8 @@ async def get_charging_station_by_id(station_id: str) -> Optional[dict]:
         if station:
             station["id"] = str(station["_id"])
             del station["_id"]
+            # Convert datetime objects to strings
+            station = convert_datetime_to_string(station)
         return station
     except:
         return None

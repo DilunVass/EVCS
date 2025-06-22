@@ -8,6 +8,9 @@ async def get_user_by_username(username: str):
     user = await users_collection.find_one({"username": username})
     if user:
         user["_id"] = str(user["_id"])  # Convert ObjectId to string
+        # Ensure role field exists, default to "user" if missing
+        if "role" not in user:
+            user["role"] = "user"
     return user
 
 
@@ -19,11 +22,12 @@ async def create_user(user: UserCreate):
         "username": user.username,
         "email": user.email,
         "password": hashed_password,
+        "role": user.role,  # Include role field
         "vehicles": [vehicle.model_dump() for vehicle in user.vehicles]  # Convert Pydantic models to dicts
     }
 
     result = await users_collection.insert_one(new_user)
-    return {"id": str(result.inserted_id), "username": user.username, "email": user.email}
+    return {"id": str(result.inserted_id), "username": user.username, "email": user.email, "role": user.role}
 
 async def add_vehicle(username: str, vehicle: Vehicle):
     """Add a vehicle to an existing user."""
@@ -32,3 +36,11 @@ async def add_vehicle(username: str, vehicle: Vehicle):
         {"$push": {"vehicles": vehicle.model_dump()}}
     )
     return result.modified_count > 0  # Returns True if updated
+
+async def update_user_role(username: str, role: str):
+    """Update user role (admin function)."""
+    result = await users_collection.update_one(
+        {"username": username},
+        {"$set": {"role": role}}
+    )
+    return result.modified_count > 0

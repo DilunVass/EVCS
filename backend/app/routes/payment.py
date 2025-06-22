@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends, status, Query
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from datetime import datetime
 from app.schemas.payment import (
     PaymentCreate,
@@ -209,4 +209,37 @@ async def get_user_payment_summary(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch user payment summary: {str(e)}"
+        )
+
+@router.get("/payments")
+async def get_payments(
+    user_id: Optional[str] = Query(None),
+    status: Optional[str] = Query(None),
+    limit: int = Query(100, le=1000),
+    skip: int = Query(0, ge=0),
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """Get payments with optional filters."""
+    try:
+        # If not admin, can only see own payments
+        if current_user.role != "admin":
+            user_id = current_user.id
+        
+        payments = await payment_service.get_all_payments(
+            user_id=user_id,
+            status=status,
+            limit=limit,
+            skip=skip,
+            admin_view=(current_user.role == "admin")
+        )
+        
+        return {
+            "success": True,
+            "data": payments,
+            "count": len(payments)
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get payments: {str(e)}"
         )
