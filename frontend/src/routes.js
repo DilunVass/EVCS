@@ -2,7 +2,6 @@ import Dashboard from "layouts/dashboard";
 import Tables from "layouts/tables";
 import Billing from "layouts/billing";
 import Stations from "layouts/stations";
-import RTL from "layouts/rtl";
 import Profile from "layouts/profile";
 import SignIn from "layouts/authentication/sign-in";
 import SignUp from "layouts/authentication/sign-up";
@@ -70,19 +69,7 @@ const routes = [
     ),
     noCollapse: true,
   },
-  {
-    type: "collapse",
-    name: "RTL",
-    key: "rtl",
-    route: "/rtl",
-    icon: <IoBuild size="15px" color="inherit" />,
-    component: () => (
-      <ProtectedRoute>
-        <RTL />
-      </ProtectedRoute>
-    ),
-    noCollapse: true,
-  },
+  
   { type: "title", title: "Account Pages", key: "account-pages" },
   {
     type: "collapse",
