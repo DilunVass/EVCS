@@ -27,9 +27,9 @@ const CarInformations = () => {
 				<VuiTypography variant='lg' color='white' fontWeight='bold' mb='6px'>
 					Car Informations
 				</VuiTypography>
-				<VuiTypography variant='button' color='text' fontWeight='regular' mb='30px'>
+				{/* <VuiTypography variant='button' color='text' fontWeight='regular' mb='30px'>
 					Hello, Mark Johnson! Your Car is ready.
-				</VuiTypography>
+				</VuiTypography> */}
 				<Stack
 					spacing='24px'
 					background='#fff'

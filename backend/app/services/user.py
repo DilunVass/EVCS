@@ -2,6 +2,7 @@ from app.database import users_collection
 from app.schemas.user import UserCreate, Vehicle
 from app.security.auth import hash_password
 from bson import ObjectId
+from datetime import datetime
 
 async def get_user_by_username(username: str):
     """Fetch a user by username."""
@@ -11,6 +12,9 @@ async def get_user_by_username(username: str):
         # Ensure role field exists, default to "user" if missing
         if "role" not in user:
             user["role"] = "user"
+        # Add creation date if not exists
+        if "createdAt" not in user:
+            user["createdAt"] = datetime.now()
     return user
 
 
@@ -23,11 +27,18 @@ async def create_user(user: UserCreate):
         "email": user.email,
         "password": hashed_password,
         "role": user.role,  # Include role field
-        "vehicles": [vehicle.model_dump() for vehicle in user.vehicles]  # Convert Pydantic models to dicts
+        "vehicles": [vehicle.model_dump() for vehicle in user.vehicles],  # Convert Pydantic models to dicts
+        "createdAt": datetime.now()  # Add creation timestamp
     }
 
     result = await users_collection.insert_one(new_user)
-    return {"id": str(result.inserted_id), "username": user.username, "email": user.email, "role": user.role}
+    return {
+        "id": str(result.inserted_id), 
+        "username": user.username, 
+        "email": user.email, 
+        "role": user.role,
+        "vehicles": user.vehicles
+    }
 
 async def add_vehicle(username: str, vehicle: Vehicle):
     """Add a vehicle to an existing user."""
@@ -44,3 +55,15 @@ async def update_user_role(username: str, role: str):
         {"$set": {"role": role}}
     )
     return result.modified_count > 0
+
+async def get_user_by_id(user_id: str):
+    """Fetch a user by ID."""
+    try:
+        user = await users_collection.find_one({"_id": ObjectId(user_id)})
+        if user:
+            user["_id"] = str(user["_id"])
+            if "role" not in user:
+                user["role"] = "user"
+        return user
+    except:
+        return None

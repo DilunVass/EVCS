@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routes import user, charging_station, charging_sessions, payment
+from app.routes import user, charging_station, charging_sessions, payment, protected
 
 app = FastAPI(title="EVCS Digital Twin API", version="1.0.0")
 
@@ -22,6 +22,7 @@ app.include_router(user.router, prefix="/auth", tags=["Auth"])
 app.include_router(charging_station.router, prefix="/api", tags=["Charging Stations"])
 app.include_router(charging_sessions.router, prefix="/api", tags=["Charging Sessions"])
 app.include_router(payment.router, prefix="/api", tags=["Payments"])
+app.include_router(protected.router, prefix="/protected", tags=["protected"])
 
 @app.get("/")
 async def root():

@@ -25,7 +25,7 @@ import { CacheProvider } from "@emotion/react";
 import createCache from "@emotion/cache";
 
 // Vision UI Dashboard React routes
-import routes from "routes";
+import getRoutes from "routes";
 
 // Vision UI Dashboard React contexts
 import { useVisionUIController, setMiniSidenav, setOpenConfigurator } from "context";
@@ -38,7 +38,28 @@ export default function App() {
   const { miniSidenav, direction, layout, openConfigurator, sidenavColor } = controller;
   const [onMouseEnter, setOnMouseEnter] = useState(false);
   const [rtlCache, setRtlCache] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const { pathname } = useLocation();
+
+  // Check authentication status
+  useEffect(() => {
+    const checkAuth = () => {
+      const token = localStorage.getItem('access_token');
+      setIsAuthenticated(token !== null);
+    };
+
+    checkAuth();
+    
+    // Listen for storage changes (logout in another tab)
+    window.addEventListener('storage', checkAuth);
+    
+    return () => {
+      window.removeEventListener('storage', checkAuth);
+    };
+  }, []);
+
+  // Get dynamic routes based on authentication
+  const routes = useMemo(() => getRoutes(isAuthenticated), [isAuthenticated]);
 
   // Cache for the rtl
   useMemo(() => {
@@ -80,10 +101,10 @@ export default function App() {
     document.scrollingElement.scrollTop = 0;
   }, [pathname]);
 
-  const getRoutes = (allRoutes) =>
+  const getRoutesJSX = (allRoutes) =>
     allRoutes.map((route) => {
       if (route.collapse) {
-        return getRoutes(route.collapse);
+        return getRoutesJSX(route.collapse);
       }
 
       if (route.route) {
@@ -138,7 +159,7 @@ export default function App() {
         {layout === "vr" && <Configurator />}
         <Switch>
           <Route exact path="/" component={Landing} />
-          {getRoutes(routes)}
+          {getRoutesJSX(routes)}
           <Redirect from="*" to="/" />
         </Switch>
       </ThemeProvider>
@@ -163,7 +184,7 @@ export default function App() {
       {layout === "vr" && <Configurator />}
       <Switch>
         <Route exact path="/" component={Landing} />
-        {getRoutes(routes)}
+        {getRoutesJSX(routes)}
         <Redirect from="*" to="/" />
       </Switch>
     </ThemeProvider>

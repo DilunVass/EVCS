@@ -109,12 +109,12 @@ function Header() {
                 },
               })}
             >
-              <VuiTypography variant="lg" color="white" fontWeight="bold">
+              {/* <VuiTypography variant="lg" color="white" fontWeight="bold">
                 Mark Johnson
               </VuiTypography>
               <VuiTypography variant="button" color="text" fontWeight="regular">
                 mark@simmmple.com
-              </VuiTypography>
+              </VuiTypography> */}
             </VuiBox>
           </Grid>
           <Grid item xs={12} md={6} lg={6.5} xl={6} xxl={4} sx={{ ml: "auto" }}>
@@ -126,8 +126,8 @@ function Header() {
                 sx={{ background: "transparent", display: "flex", justifyContent: "flex-end" }}
               >
                 <Tab label="OVERVIEW" icon={<IoCube color="white" size="16px" />} />
-                <Tab label="TEAMS" icon={<IoDocument color="white" size="16px" />} />
-                <Tab label="PROJECTS" icon={<IoBuild color="white" size="16px" />} />
+                <Tab label="STATIONS" icon={<IoDocument color="white" size="16px" />} />
+                <Tab label="CARS" icon={<IoBuild color="white" size="16px" />} />
               </Tabs>
             </AppBar>
           </Grid>

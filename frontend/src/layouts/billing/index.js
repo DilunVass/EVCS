@@ -45,9 +45,9 @@ function Billing() {
             <Grid item xs={12} lg={7}>
               <EVBillingInfo />
             </Grid>
-            <Grid item xs={12} lg={5}>
+            {/* <Grid item xs={12} lg={5}>
               <EVTransactions />
-            </Grid>
+            </Grid> */}
           </Grid>
         </VuiBox>
       </VuiBox>
