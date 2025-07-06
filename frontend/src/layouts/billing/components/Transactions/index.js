@@ -1,20 +1,4 @@
-/*!
 
-=========================================================
-* Vision UI Free React - v1.0.0
-=========================================================
-
-* Product Page: https://www.creative-tim.com/product/vision-ui-free-react
-* Copyright 2021 Creative Tim (https://www.creative-tim.com/)
-* Licensed under MIT (https://github.com/creativetimofficial/vision-ui-free-react/blob/master LICENSE.md)
-
-* Design and Coded by Simmmple & Creative Tim
-
-=========================================================
-
-* The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-*/
 
 // @mui material components
 import Card from "@mui/material/Card";
@@ -27,8 +11,97 @@ import VuiTypography from "components/VuiTypography";
 
 // Billing page components
 import Transaction from "layouts/billing/components/Transaction";
+import React, { useState, useEffect } from 'react';
+import { Chip, CircularProgress } from '@mui/material';
+import VuiButton from 'components/VuiButton';
+import { IoFlash, IoTime, IoCard, IoCheckmark, IoClose, IoTime as IoPending } from 'react-icons/io5';
+import { FaChargingStation } from 'react-icons/fa';
+import api from 'layouts/stations/api';
 
 function Transactions() {
+  const [payments, setPayments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchPayments = async () => {
+      try {
+        setLoading(true);
+        const response = await api.get('/api/payments');
+        setPayments(response.data);
+      } catch (err) {
+        console.error('Error fetching payments:', err);
+        setError('Failed to load payment history');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPayments();
+    
+    // Refresh every 30 seconds
+    const interval = setInterval(fetchPayments, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'completed':
+      case 'paid':
+        return 'success';
+      case 'pending':
+        return 'warning';
+      case 'failed':
+        return 'error';
+      default:
+        return 'info';
+    }
+  };
+
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case 'completed':
+      case 'paid':
+        return <IoCheckmark size="14px" />;
+      case 'pending':
+        return <IoPending size="14px" />;
+      case 'failed':
+        return <IoClose size="14px" />;
+      default:
+        return <IoCard size="14px" />;
+    }
+  };
+
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
+  if (loading) {
+    return (
+      <Card>
+        <VuiBox p={3} display="flex" alignItems="center" justifyContent="center" minHeight="400px">
+          <CircularProgress />
+        </VuiBox>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card>
+        <VuiBox p={3}>
+          <VuiTypography variant="lg" color="error" fontWeight="bold" mb="5px">
+            Error Loading Transactions
+          </VuiTypography>
+          <VuiTypography variant="button" color="text">
+            {error}
+          </VuiTypography>
+        </VuiBox>
+      </Card>
+    );
+  }
+
   return (
     <Card sx={{ height: "100%" }}>
       <VuiBox
@@ -67,86 +140,108 @@ function Transactions() {
         </VuiBox>
       </VuiBox>
       <VuiBox>
-        <VuiBox mb={2}>
-          <VuiTypography
-            variant="caption"
-            color="text"
-            fontWeight="medium"
-            textTransform="uppercase"
-          >
-            newest
+        
+      </VuiBox>
+      <VuiBox p={3}>
+        <VuiBox display="flex" alignItems="center" mb="20px">
+          <FaChargingStation size="20px" color="white" />
+          <VuiTypography variant="lg" color="white" fontWeight="bold" ml={1}>
+            Charging Transaction History
           </VuiTypography>
         </VuiBox>
-        <VuiBox
-          component="ul"
-          display="flex"
-          flexDirection="column"
-          p={0}
-          m={0}
-          sx={{ listStyle: "none" }}
-        >
-          <Transaction
-            color="error"
-            icon="arrow_downward"
-            name="Netflix"
-            description="27 March 2020, at 12:30 PM"
-            value="- $ 2,500"
-          />
-          <Transaction
-            color="success"
-            icon="arrow_upward"
-            name="Apple"
-            description="27 March 2020, at 04:30 AM"
-            value="+ $ 2,000"
-          />
+        
+        <VuiBox>
+          {payments.length === 0 ? (
+            <VuiBox textAlign="center" py={4}>
+              <VuiTypography variant="button" color="text">
+                No charging transactions found
+              </VuiTypography>
+            </VuiBox>
+          ) : (
+            payments.map((payment) => (
+              <VuiBox key={payment.id} mb={2} p={2} 
+                sx={{ 
+                  backgroundColor: 'rgba(255,255,255,0.05)', 
+                  borderRadius: '8px',
+                  border: '1px solid rgba(255,255,255,0.1)'
+                }}
+              >
+                <VuiBox display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+                  <VuiBox display="flex" alignItems="center">
+                    <IoFlash size="16px" color="#f59e0b" />
+                    <VuiTypography variant="button" color="white" fontWeight="bold" ml={1}>
+                      Charging Session
+                    </VuiTypography>
+                  </VuiBox>
+                  
+                  <Chip 
+                    icon={getStatusIcon(payment.status)}
+                    label={payment.status.toUpperCase()}
+                    size="small"
+                    sx={{ 
+                      backgroundColor: getStatusColor(payment.status) === 'success' ? '#16a34a' : 
+                                       getStatusColor(payment.status) === 'warning' ? '#f59e0b' : 
+                                       getStatusColor(payment.status) === 'error' ? '#ef4444' : '#3b82f6',
+                      color: 'white',
+                      fontWeight: 'bold',
+                      '& .MuiChip-icon': {
+                        color: 'white'
+                      }
+                    }}
+                  />
+                </VuiBox>
+                
+                <VuiBox display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+                  <VuiTypography variant="h6" color="white" fontWeight="bold">
+                    ${payment.amount.toFixed(2)} {payment.currency}
+                  </VuiTypography>
+                  
+                  <VuiTypography variant="caption" color="text">
+                    {formatDate(payment.created_at)}
+                  </VuiTypography>
+                </VuiBox>
+                
+                <VuiBox display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+                  <VuiBox display="flex" alignItems="center">
+                    <IoCard size="14px" color="#6b7280" />
+                    <VuiTypography variant="caption" color="text" ml={0.5}>
+                      {payment.payment_method.provider} •••• {payment.payment_method.last_four_digits}
+                    </VuiTypography>
+                  </VuiBox>
+                  
+                  <VuiTypography variant="caption" color="text">
+                    TXN: {payment.transaction_id}
+                  </VuiTypography>
+                </VuiBox>
+                
+                {payment.failure_reason && (
+                  <VuiBox mt={1} p={1} sx={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', borderRadius: '4px' }}>
+                    <VuiTypography variant="caption" color="error">
+                      Failed: {payment.failure_reason}
+                    </VuiTypography>
+                  </VuiBox>
+                )}
+                
+                {payment.processed_at && (
+                  <VuiBox display="flex" alignItems="center" mt={1}>
+                    <IoTime size="12px" color="#6b7280" />
+                    <VuiTypography variant="caption" color="text" ml={0.5}>
+                      Processed: {formatDate(payment.processed_at)}
+                    </VuiTypography>
+                  </VuiBox>
+                )}
+              </VuiBox>
+            ))
+          )}
         </VuiBox>
-        <VuiBox mt={1} mb={2}>
-          <VuiTypography
-            variant="caption"
-            color="text"
-            fontWeight="medium"
-            textTransform="uppercase"
-          >
-            yesterday
-          </VuiTypography>
-        </VuiBox>
-        <VuiBox
-          component="ul"
-          display="flex"
-          flexDirection="column"
-          p={0}
-          m={0}
-          sx={{ listStyle: "none" }}
-        >
-          <Transaction
-            color="success"
-            icon="arrow_upward"
-            name="Stripe"
-            description="26 March 2020, at 13:45 PM"
-            value="+ $ 750"
-          />
-          <Transaction
-            color="success"
-            icon="arrow_upward"
-            name="HubSpot"
-            description="26 March 2020, at 12:30 PM"
-            value="+ $ 1,000"
-          />
-          <Transaction
-            color="success"
-            icon="arrow_upward"
-            name="HubSpot"
-            description="26 March 2020, at 08:30 AM"
-            value="+ $ 2,500"
-          />
-          <Transaction
-            color="text"
-            icon="priority_high"
-            name="Webflow"
-            description="26 March 2020, at 05:00 AM"
-            value="Pending"
-          />
-        </VuiBox>
+        
+        {payments.length > 0 && (
+          <VuiBox mt={3} textAlign="center">
+            <VuiButton variant="outlined" color="info" size="small">
+              View All Transactions
+            </VuiButton>
+          </VuiBox>
+        )}
       </VuiBox>
     </Card>
   );

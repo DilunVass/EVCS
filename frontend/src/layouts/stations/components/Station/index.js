@@ -1,27 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import AddStationForm from '../AddStationForm';
+import ChargingSessionForm from '../ChargingSessionForm';
+import api from '../../api'
 
 const EVChargingSimulation = () => {
-  const [stations, setStations] = useState([
-    { 
-      id: 1, 
-      name: 'Station Alpha', 
-      slots: [
-        { id: 1, status: 'available', car: null, chargeLevel: 0 },
-        { id: 2, status: 'charging', car: { id: 'car-1', color: '#3b82f6', direction: 'right', position: 100, isPlugged: true, chargeLevel: 45 } },
-        { id: 3, status: 'available', car: null, chargeLevel: 0 }
-      ] 
-    },
-    { 
-      id: 2, 
-      name: 'Station Beta', 
-      slots: [
-        { id: 1, status: 'charging', car: { id: 'car-2', color: '#16a34a', direction: 'left', position: 100, isPlugged: true, chargeLevel: 72 } },
-        { id: 2, status: 'available', car: null, chargeLevel: 0 },
-        { id: 3, status: 'charging', car: { id: 'car-3', color: '#ef4444', direction: 'left', position: 100, isPlugged: true, chargeLevel: 23 } }
-      ] 
-    }
-  ]);
-  
+  const [stations, setStations] = useState([]);
   const [incomingCars, setIncomingCars] = useState([
     { id: 'car-4', color: '#8b5cf6', direction: 'right', position: -100, destination: { stationId: 1, slotId: 1 }, chargeLevel: 15 },
     { id: 'car-5', color: '#f59e0b', direction: 'left', position: 500, destination: { stationId: 2, slotId: 2 }, chargeLevel: 10 }
@@ -29,9 +12,66 @@ const EVChargingSimulation = () => {
   
   const [departingCars, setDepartingCars] = useState([]);
   const [time, setTime] = useState(0);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [showSessionForm, setShowSessionForm] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Fetch stations from API
+  useEffect(() => {
+    const fetchStations = async () => {
+      try {
+        setLoading(true);
+        const response = await api.get('/api/stations');
+        const apiStations = response.data;
+        
+        // Transform API data to match simulation format
+        const transformedStations = apiStations.map((station, index) => ({
+          id: station.id,
+          name: station.name,
+          location: station.location,
+          latitude: station.latitude,
+          longitude: station.longitude,
+          power_output: station.power_output,
+          connector_types: station.connector_types,
+          price_per_kwh: station.price_per_kwh,
+          status: station.status,
+          slots: Array.from({ length: station.total_ports }, (_, slotIndex) => {
+            const slotId = slotIndex + 1;
+            const isOccupied = slotIndex < (station.total_ports - station.available_ports);
+            
+            return {
+              id: slotId,
+              status: isOccupied ? 'charging' : 'available',
+              car: isOccupied ? {
+                id: `car-${station.id}-${slotId}`,
+                color: ['#3b82f6', '#16a34a', '#ef4444', '#8b5cf6', '#f59e0b'][slotIndex % 5],
+                direction: 'right',
+                position: 100,
+                isPlugged: true,
+                chargeLevel: Math.floor(Math.random() * 80) + 20
+              } : null,
+              chargeLevel: 0
+            };
+          })
+        }));
+        
+        setStations(transformedStations);
+      } catch (err) {
+        setError(err.message);
+        console.error('Error fetching stations:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStations();
+  }, []);
   
   // Animation frame
   useEffect(() => {
+    if (stations.length === 0) return;
+    
     const timer = setTimeout(() => {
       setTime(prevTime => prevTime + 1);
       
@@ -213,7 +253,7 @@ const EVChargingSimulation = () => {
     }, 50);
     
     return () => clearTimeout(timer);
-  }, [time]);
+  }, [time, stations, incomingCars]);
   
   // Add a new car to the simulation
   const addNewCar = () => {
@@ -249,36 +289,177 @@ const EVChargingSimulation = () => {
     }
   };
   
+  const handleAddStation = async (newStation) => {
+    console.log('New station added:', newStation);
+    setShowAddForm(false);
+    
+    // Refresh stations from API
+    try {
+      const response = await api.get('/api/stations');
+      const apiStations = response.data;
+      
+      // Transform API data to match simulation format
+      const transformedStations = apiStations.map((station, index) => ({
+        id: station.id,
+        name: station.name,
+        location: station.location,
+        latitude: station.latitude,
+        longitude: station.longitude,
+        power_output: station.power_output,
+        connector_types: station.connector_types,
+        price_per_kwh: station.price_per_kwh,
+        status: station.status,
+        slots: Array.from({ length: station.total_ports }, (_, slotIndex) => {
+          const slotId = slotIndex + 1;
+          const isOccupied = slotIndex < (station.total_ports - station.available_ports);
+          
+          return {
+            id: slotId,
+            status: isOccupied ? 'charging' : 'available',
+            car: isOccupied ? {
+              id: `car-${station.id}-${slotId}`,
+              color: ['#3b82f6', '#16a34a', '#ef4444', '#8b5cf6', '#f59e0b'][slotIndex % 5],
+              direction: 'right',
+              position: 100,
+              isPlugged: true,
+              chargeLevel: Math.floor(Math.random() * 80) + 20
+            } : null,
+            chargeLevel: 0
+          };
+        })
+      }));
+      
+      setStations(transformedStations);
+    } catch (error) {
+      console.error('Error refreshing stations:', error);
+    }
+  };
+
+  const handleAddSession = async (newSession) => {
+    console.log('New charging session started:', newSession);
+    setShowSessionForm(false);
+    
+    // Find the station and slot to update
+    const stationId = newSession.station_id;
+    const slotId = newSession.slot_id;
+    
+    // Add a new incoming car for this session
+    const colors = ['#3b82f6', '#16a34a', '#ef4444', '#8b5cf6', '#f59e0b', '#6366f1'];
+    const color = colors[Math.floor(Math.random() * colors.length)];
+    const direction = Math.random() > 0.5 ? 'right' : 'left';
+    const position = direction === 'right' ? -100 : 500;
+    
+    setIncomingCars(prev => [
+      ...prev,
+      {
+        id: `car-${newSession.id || Math.random().toString(36).substr(2, 9)}`,
+        color,
+        direction,
+        position,
+        destination: { stationId, slotId },
+        chargeLevel: newSession.initial_charge_level,
+        vehicleNumber: newSession.vehicle_number,
+        userId: newSession.user_id,
+        sessionId: newSession.id
+      }
+    ]);
+  };
+
+  if (loading) {
+    return (
+      <div style={{ padding: '16px', textAlign: 'center' }}>
+        <div style={{ fontSize: '1.125rem', color: '#6b7280' }}>Loading charging stations...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div style={{ padding: '16px', textAlign: 'center' }}>
+        <div style={{ fontSize: '1.125rem', color: '#ef4444' }}>Error: {error}</div>
+        <button 
+          onClick={() => window.location.reload()}
+          style={{
+            marginTop: '16px',
+            padding: '8px 16px',
+            backgroundColor: '#3b82f6',
+            color: 'white',
+            border: 'none',
+            borderRadius: '6px',
+            cursor: 'pointer'
+          }}
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div style={{ padding: '16px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
         <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', margin: 0 }}>EV Charging Station Simulation</h2>
-        <button 
-          onClick={addNewCar}
-          style={{
-            backgroundColor: '#16a34a',
-            color: 'white',
-            padding: '8px 16px',
-            borderRadius: '8px',
-            border: 'none',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center'
-          }}
-          onMouseOver={(e) => e.target.style.backgroundColor = '#15803d'}
-          onMouseOut={(e) => e.target.style.backgroundColor = '#16a34a'}
-        >
-          <span style={{ marginRight: '8px' }}>🚗</span> Add New Vehicle
-        </button>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <button 
+            onClick={() => setShowAddForm(true)}
+            style={{
+              backgroundColor: '#3b82f6',
+              color: 'white',
+              padding: '8px 16px',
+              borderRadius: '8px',
+              border: 'none',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center'
+            }}
+            onMouseOver={(e) => e.target.style.backgroundColor = '#2563eb'}
+            onMouseOut={(e) => e.target.style.backgroundColor = '#3b82f6'}
+          >
+            <span style={{ marginRight: '8px' }}>🏢</span> Add Station
+          </button>
+          <button 
+            onClick={() => setShowSessionForm(true)}
+            style={{
+              backgroundColor: '#f59e0b',
+              color: 'white',
+              padding: '8px 16px',
+              borderRadius: '8px',
+              border: 'none',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center'
+            }}
+            onMouseOver={(e) => e.target.style.backgroundColor = '#d97706'}
+            onMouseOut={(e) => e.target.style.backgroundColor = '#f59e0b'}
+          >
+            <span style={{ marginRight: '8px' }}>⚡</span> Start Session
+          </button>
+          <button 
+            onClick={addNewCar}
+            style={{
+              backgroundColor: '#16a34a',
+              color: 'white',
+              padding: '8px 16px',
+              borderRadius: '8px',
+              border: 'none',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center'
+            }}
+            onMouseOver={(e) => e.target.style.backgroundColor = '#15803d'}
+            onMouseOut={(e) => e.target.style.backgroundColor = '#16a34a'}
+          >
+            <span style={{ marginRight: '8px' }}>🚗</span> Add New Vehicle
+          </button>
+        </div>
       </div>
       
       <div style={{ display: 'flex', flexDirection: 'column', gap: '48px' }}>
         {stations.map(station => (
           <div key={station.id} style={{ position: 'relative' }}>
-            <div style={{ marginBottom: '8px', display: 'flex', alignItems: 'center' }}>
+            <div style={{ marginBottom: '8px', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
               <h3 style={{ fontSize: '1.125rem', fontWeight: '600', margin: 0 }}>{station.name}</h3>
               <span style={{
-                marginLeft: '8px',
                 fontSize: '0.875rem',
                 backgroundColor: '#dcfce7',
                 color: '#166534',
@@ -287,6 +468,49 @@ const EVChargingSimulation = () => {
               }}>
                 {station.slots.filter(slot => slot.status === 'charging').length}/{station.slots.length} Active
               </span>
+              <span style={{
+                fontSize: '0.875rem',
+                backgroundColor: '#fef3c7',
+                color: '#92400e',
+                padding: '4px 8px',
+                borderRadius: '16px'
+              }}>
+                {station.power_output}kW
+              </span>
+              <span style={{
+                fontSize: '0.875rem',
+                backgroundColor: '#e0e7ff',
+                color: '#3730a3',
+                padding: '4px 8px',
+                borderRadius: '16px'
+              }}>
+                ${station.price_per_kwh}/kWh
+              </span>
+              <span style={{
+                fontSize: '0.875rem',
+                backgroundColor: '#f3f4f6',
+                color: '#374151',
+                padding: '4px 8px',
+                borderRadius: '16px'
+              }}>
+                📍 {station.location}
+              </span>
+            </div>
+            
+            {/* Connector types */}
+            <div style={{ marginBottom: '12px', display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+              {station.connector_types.map(type => (
+                <span key={type} style={{
+                  fontSize: '0.75rem',
+                  backgroundColor: '#f9fafb',
+                  color: '#6b7280',
+                  padding: '2px 6px',
+                  borderRadius: '12px',
+                  border: '1px solid #e5e7eb'
+                }}>
+                  {type}
+                </span>
+              ))}
             </div>
             
             {/* Road */}
@@ -413,7 +637,7 @@ const EVChargingSimulation = () => {
                   style={{
                     position: 'absolute',
                     top: '50%',
-                    left: `${slot.id * (100/4)}%`,
+                    left: `${slot.id * (100/(station.slots.length + 1))}%`,
                     transform: 'translateY(-50%) translateX(-50%)',
                     zIndex: 10,
                     transition: 'all 0.3s'
@@ -496,7 +720,7 @@ const EVChargingSimulation = () => {
             </div>
             
             {/* Station info */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: `repeat(${station.slots.length}, 1fr)`, gap: '16px' }}>
               {station.slots.map(slot => (
                 <div 
                   key={`info-${station.id}-${slot.id}`} 
@@ -545,6 +769,21 @@ const EVChargingSimulation = () => {
           </div>
         ))}
       </div>
+      
+      {showAddForm && (
+        <AddStationForm
+          onAddStation={handleAddStation}
+          onCancel={() => setShowAddForm(false)}
+        />
+      )}
+      
+      {showSessionForm && (
+        <ChargingSessionForm
+          stations={stations}
+          onAddSession={handleAddSession}
+          onCancel={() => setShowSessionForm(false)}
+        />
+      )}
     </div>
   );
 };

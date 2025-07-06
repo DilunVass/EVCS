@@ -30,19 +30,19 @@ const routes = [
     ),
     noCollapse: true,
   },
-  {
-    type: "collapse",
-    name: "Tables",
-    key: "tables",
-    route: "/tables",
-    icon: <IoStatsChart size="15px" color="inherit" />,
-    component: () => (
-      <ProtectedRoute>
-        <Tables />
-      </ProtectedRoute>
-    ),
-    noCollapse: true,
-  },
+  // {
+  //   type: "collapse",
+  //   name: "Tables",
+  //   key: "tables",
+  //   route: "/tables",
+  //   icon: <IoStatsChart size="15px" color="inherit" />,
+  //   component: () => (
+  //     <ProtectedRoute>
+  //       <Tables />
+  //     </ProtectedRoute>
+  //   ),
+  //   noCollapse: true,
+  // },
   {
     type: "collapse",
     name: "Billing",
@@ -84,24 +84,24 @@ const routes = [
     ),
     noCollapse: true,
   },
-  {
-    type: "collapse",
-    name: "Sign In",
-    key: "sign-in",
-    route: "/authentication/sign-in",
-    icon: <IoIosDocument size="15px" color="inherit" />,
-    component: SignIn,
-    noCollapse: true,
-  },
-  {
-    type: "collapse",
-    name: "Sign Up",
-    key: "sign-up",
-    route: "/authentication/sign-up",
-    icon: <IoRocketSharp size="15px" color="inherit" />,
-    component: SignUp,
-    noCollapse: true,
-  },
+  // {
+  //   type: "collapse",
+  //   name: "Sign In",
+  //   key: "sign-in",
+  //   route: "/authentication/sign-in",
+  //   icon: <IoIosDocument size="15px" color="inherit" />,
+  //   component: SignIn,
+  //   noCollapse: true,
+  // },
+  // {
+  //   type: "collapse",
+  //   name: "Sign Up",
+  //   key: "sign-up",
+  //   route: "/authentication/sign-up",
+  //   icon: <IoRocketSharp size="15px" color="inherit" />,
+  //   component: SignUp,
+  //   noCollapse: true,
+  // },
 ];
 
 export default routes;
