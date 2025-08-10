@@ -54,7 +54,7 @@ function Overview() {
           return;
         }
 
-        const response = await fetch('http://127.0.0.1:8000/protected/profile', {
+        const response = await fetch('https://fastapi-app-121646825275.us-central1.run.app/protected/profile', {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
