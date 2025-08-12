@@ -16,6 +16,61 @@ const EVChargingSimulation = () => {
   const [showSessionForm, setShowSessionForm] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [userProfile, setUserProfile] = useState(null);
+
+  // Fetch user profile
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      try {
+        const response = await api.get('/protected/profile');
+        setUserProfile(response.data);
+      } catch (error) {
+        console.error('Error fetching user profile:', error);
+      }
+    };
+
+    fetchUserProfile();
+  }, []);
+
+  // Create charging session
+  const createChargingSession = async (stationId, slotId, vehicleNumber, initialChargeLevel) => {
+    try {
+      const sessionData = {
+        station_id: stationId,
+        slot_id: slotId,
+        user_id: userProfile?.id || "689845ec83cbdd84faac3d57", // Fallback to default user
+        vehicle_number: vehicleNumber,
+        initial_charge_level: initialChargeLevel
+      };
+
+      const response = await api.post('/api/sessions', sessionData);
+      console.log('Charging session created:', response.data);
+      return response.data.data;
+    } catch (error) {
+      console.error('Error creating charging session:', error);
+      return null;
+    }
+  };
+
+  // Complete charging session
+  const completeChargingSession = async (sessionId, finalChargeLevel, energyConsumed) => {
+    try {
+      const response = await api.post(`/api/sessions/${sessionId}/complete?final_charge_level=${finalChargeLevel}&energy_consumed=${energyConsumed}`);
+      console.log('Charging session completed:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Error completing charging session:', error);
+      return null;
+    }
+  };
+
+  // Calculate energy consumed based on charge level difference and station power
+  const calculateEnergyConsumed = (initialCharge, finalCharge, stationPower) => {
+    const chargeDifference = finalCharge - initialCharge;
+    // Assuming average EV battery capacity of 60kWh for calculation
+    const batteryCapacity = 60; // kWh
+    return (chargeDifference / 100) * batteryCapacity;
+  };
 
   // Fetch stations from API
   useEffect(() => {
@@ -49,7 +104,9 @@ const EVChargingSimulation = () => {
                 direction: 'right',
                 position: 100,
                 isPlugged: true,
-                chargeLevel: Math.floor(Math.random() * 80) + 20
+                chargeLevel: Math.floor(Math.random() * 80) + 20,
+                initialChargeLevel: Math.floor(Math.random() * 20) + 5,
+                sessionId: null
               } : null,
               chargeLevel: 0
             };
@@ -126,7 +183,17 @@ const EVChargingSimulation = () => {
             if (slot.status === 'charging' && slot.car && slot.car.isPlugged) {
               const newChargeLevel = Math.min(100, slot.car.chargeLevel + 0.2);
               
-              // If fully charged, schedule for departure
+              // If fully charged, schedule for departure and complete session
+              if (newChargeLevel >= 100 && slot.car.chargeLevel < 100 && slot.car.sessionId) {
+                // Complete the charging session
+                const energyConsumed = calculateEnergyConsumed(
+                  slot.car.initialChargeLevel,
+                  newChargeLevel,
+                  station.power_output
+                );
+                completeChargingSession(slot.car.sessionId, newChargeLevel, energyConsumed);
+              }
+              
               if (newChargeLevel >= 100 && Math.random() < 0.01) {
                 // Unplug car
                 return {
@@ -172,7 +239,13 @@ const EVChargingSimulation = () => {
                   return {
                     ...slot,
                     status: 'arriving',
-                    car: { ...car, position: 0, isPlugged: false }
+                    car: { 
+                      ...car, 
+                      position: 0, 
+                      isPlugged: false,
+                      initialChargeLevel: car.chargeLevel,
+                      sessionId: car.sessionId
+                    }
                   };
                 }
                 return slot;
@@ -203,8 +276,34 @@ const EVChargingSimulation = () => {
               };
             }
             
-            // If car just arrived, plug it in
+            // If car just arrived, plug it in and create session
             if (slot.status === 'arriving' && slot.car && !slot.car.isPlugged && Math.random() < 0.1) {
+              // Create charging session if it doesn't have one
+              if (!slot.car.sessionId) {
+                createChargingSession(
+                  station.id,
+                  slot.id,
+                  slot.car.id,
+                  slot.car.chargeLevel
+                ).then(sessionData => {
+                  if (sessionData) {
+                    setStations(prevStations => 
+                      prevStations.map(prevStation => 
+                        prevStation.id === station.id ? {
+                          ...prevStation,
+                          slots: prevStation.slots.map(prevSlot => 
+                            prevSlot.id === slot.id && prevSlot.car ? {
+                              ...prevSlot,
+                              car: { ...prevSlot.car, sessionId: sessionData.id }
+                            } : prevSlot
+                          )
+                        } : prevStation
+                      )
+                    );
+                  }
+                });
+              }
+              
               return {
                 ...slot,
                 status: 'charging',
@@ -245,7 +344,8 @@ const EVChargingSimulation = () => {
               direction,
               position,
               destination,
-              chargeLevel: Math.floor(Math.random() * 20) + 5
+              chargeLevel: Math.floor(Math.random() * 20) + 5,
+              sessionId: null
             }
           ]);
         }
@@ -253,7 +353,7 @@ const EVChargingSimulation = () => {
     }, 50);
     
     return () => clearTimeout(timer);
-  }, [time, stations, incomingCars]);
+  }, [time, stations, incomingCars, userProfile]);
   
   // Add a new car to the simulation
   const addNewCar = () => {
@@ -283,7 +383,8 @@ const EVChargingSimulation = () => {
           direction,
           position,
           destination,
-          chargeLevel: Math.floor(Math.random() * 20) + 5
+          chargeLevel: Math.floor(Math.random() * 20) + 5,
+          sessionId: null
         }
       ]);
     }
@@ -322,7 +423,9 @@ const EVChargingSimulation = () => {
               direction: 'right',
               position: 100,
               isPlugged: true,
-              chargeLevel: Math.floor(Math.random() * 80) + 20
+              chargeLevel: Math.floor(Math.random() * 80) + 20,
+              initialChargeLevel: Math.floor(Math.random() * 20) + 5,
+              sessionId: null
             } : null,
             chargeLevel: 0
           };
@@ -343,26 +446,36 @@ const EVChargingSimulation = () => {
     const stationId = newSession.station_id;
     const slotId = newSession.slot_id;
     
-    // Add a new incoming car for this session
-    const colors = ['#3b82f6', '#16a34a', '#ef4444', '#8b5cf6', '#f59e0b', '#6366f1'];
-    const color = colors[Math.floor(Math.random() * colors.length)];
-    const direction = Math.random() > 0.5 ? 'right' : 'left';
-    const position = direction === 'right' ? -100 : 500;
+    // Create the charging session first
+    const sessionData = await createChargingSession(
+      stationId,
+      slotId,
+      newSession.vehicle_number,
+      newSession.initial_charge_level
+    );
     
-    setIncomingCars(prev => [
-      ...prev,
-      {
-        id: `car-${newSession.id || Math.random().toString(36).substr(2, 9)}`,
-        color,
-        direction,
-        position,
-        destination: { stationId, slotId },
-        chargeLevel: newSession.initial_charge_level,
-        vehicleNumber: newSession.vehicle_number,
-        userId: newSession.user_id,
-        sessionId: newSession.id
-      }
-    ]);
+    if (sessionData) {
+      // Add a new incoming car for this session
+      const colors = ['#3b82f6', '#16a34a', '#ef4444', '#8b5cf6', '#f59e0b', '#6366f1'];
+      const color = colors[Math.floor(Math.random() * colors.length)];
+      const direction = Math.random() > 0.5 ? 'right' : 'left';
+      const position = direction === 'right' ? -100 : 500;
+      
+      setIncomingCars(prev => [
+        ...prev,
+        {
+          id: newSession.vehicle_number,
+          color,
+          direction,
+          position,
+          destination: { stationId, slotId },
+          chargeLevel: newSession.initial_charge_level,
+          vehicleNumber: newSession.vehicle_number,
+          userId: newSession.user_id,
+          sessionId: sessionData.id
+        }
+      ]);
+    }
   };
 
   if (loading) {
