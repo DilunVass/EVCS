@@ -1,6 +1,7 @@
-from pydantic import BaseModel, Field, field_serializer
-from typing import Optional, Literal
+from pydantic import BaseModel, Field, ConfigDict
+from typing import Optional, Literal, List
 from datetime import datetime
+from enum import Enum
 from bson import ObjectId
 
 class ChargingSession(BaseModel):
@@ -49,35 +50,26 @@ class ChargingSessionUpdate(BaseModel):
     end_time: Optional[datetime] = None
 
 class ChargingSessionResponse(BaseModel):
-    """Schema for returning charging session details."""
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_encoders={
+            datetime: lambda v: v.isoformat() if v else None
+        }
+    )
+    
     id: str
-    station_id: str
-    slot_id: int
     user_id: str
-    vehicle_number: str
-    start_time: Optional[str] = None
-    end_time: Optional[str] = None
+    station_id: str
+    connector_id: Optional[str] = None
+    start_time: datetime
+    end_time: Optional[datetime] = None
     initial_charge_level: float
     final_charge_level: Optional[float] = None
-    current_charge_level: Optional[float] = None
     energy_consumed: Optional[float] = None
-    cost: Optional[float] = None
     status: str
-    payment_status: str
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
-    duration_minutes: Optional[int] = None
-
-    @field_serializer('start_time', 'end_time', 'created_at', 'updated_at')
-    def serialize_datetime(self, dt, _info) -> Optional[str]:
-        if dt is None:
-            return None
-        if isinstance(dt, datetime):
-            return dt.isoformat()
-        return dt
-
-    class Config:
-        from_attributes = True
+    cost: Optional[float] = None
+    created_at: datetime
+    updated_at: datetime
 
 class SessionAnalytics(BaseModel):
     """Schema for session analytics."""
