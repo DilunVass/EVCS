@@ -30,7 +30,7 @@ export default function sessionsTableData() {
 
   const formatCurrency = (amount) => {
     if (amount === null || amount === undefined) return '$0.00';
-    return `$${amount.toFixed(2)}`;
+    return `$${Number(amount).toFixed(2)}`;
   };
 
   const getStatusBadge = (status) => {
@@ -100,7 +100,7 @@ export default function sessionsTableData() {
       energy: (
         <VuiTypography variant="button" color="white" fontWeight="medium">
           {session.energy_consumed !== null && session.energy_consumed !== undefined 
-            ? `${session.energy_consumed.toFixed(1)} kWh` 
+            ? `${Number(session.energy_consumed).toFixed(1)} kWh` 
             : 'N/A'}
         </VuiTypography>
       ),
