@@ -1,5 +1,6 @@
 // @mui material components
 // @mui icons
+import React from "react";
 import FacebookIcon from "@mui/icons-material/Facebook";
 import InstagramIcon from "@mui/icons-material/Instagram";
 import TwitterIcon from "@mui/icons-material/Twitter";
@@ -14,6 +15,11 @@ import Skeleton from "@mui/material/Skeleton";
 import Alert from "@mui/material/Alert";
 import Chip from "@mui/material/Chip";
 import LinearProgress from "@mui/material/LinearProgress";
+import BarChartIcon from "@mui/icons-material/BarChart";
+import TrendingUpIcon from "@mui/icons-material/TrendingUp";
+import FlashOnIcon from "@mui/icons-material/FlashOn";
+import AttachMoneyIcon from "@mui/icons-material/AttachMoney";
+import Box from "@mui/material/Box";
 
 // Images
 import team1 from "assets/images/avatar1.png";
@@ -35,47 +41,40 @@ import DashboardLayout from "examples/LayoutContainers/DashboardLayout";
 
 // Overview page components
 import Header from "layouts/profile/components/Header";
-import PlatformSettings from "layouts/profile/components/PlatformSettings";
-import Welcome from "./components/Welcome/index";
-import CarInformations from "./components/CarInformations";
 import { useState, useEffect } from "react";
+
+// API import
+import { getUserProfile } from "layouts/stations/api";
+import api from "layouts/stations/api";
 
 function Overview() {
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [analytics, setAnalytics] = useState(null);
+  const [sessions, setSessions] = useState([]);
 
   useEffect(() => {
-    const fetchUserProfile = async () => {
+    const fetchData = async () => {
       try {
-        const token = localStorage.getItem('access_token');
-        if (!token) {
-          setError('No authentication token found');
-          return;
-        }
-
-        const response = await fetch('https://fastapi-app-121646825275.us-central1.run.app/protected/profile', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          setUserProfile(data);
-        } else {
-          setError('Failed to fetch profile data');
-        }
-      } catch (error) {
-        console.error('Error fetching user profile:', error);
-        setError('Network error occurred');
+        setLoading(true);
+        const [profileResponse, analyticsResponse, sessionsResponse] = await Promise.all([
+          getUserProfile(),
+          api.get('/api/analytics'),
+          api.get('/api/sessions')
+        ]);
+        setUserProfile(profileResponse);
+        setAnalytics(analyticsResponse.data);
+        setSessions(sessionsResponse.data.slice(0, 5)); // Show last 5 sessions
+      } catch (err) {
+        console.error('Error fetching data:', err);
+        setError('Failed to fetch data');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchUserProfile();
+    fetchData();
   }, []);
 
   const getVehicleImage = (index) => {
@@ -103,6 +102,78 @@ function Overview() {
       default:
         return 'info';
     }
+  };
+
+  // Analytics helper functions
+  const getMetricCard = (title, value, icon, color, trend) => (
+    <Card sx={{ height: "100%", background: "linear-gradient(127.09deg, rgba(6, 11, 40, 0.94) 19.41%, rgba(10, 14, 35, 0.49) 76.65%)" }}>
+      <VuiBox p={2}>
+        <VuiBox display="flex" justifyContent="space-between" alignItems="center">
+          <VuiBox>
+            <VuiTypography variant="caption" color="text" fontWeight="medium">
+              {title}
+            </VuiTypography>
+            <VuiTypography variant="h4" color="white" fontWeight="bold">
+              {value}
+            </VuiTypography>
+            {trend && (
+              <VuiBox display="flex" alignItems="center" mt={1}>
+                <TrendingUpIcon sx={{ fontSize: 16, color: color, mr: 0.5 }} />
+                <VuiTypography variant="caption" color={color} fontWeight="medium">
+                  {trend}
+                </VuiTypography>
+              </VuiBox>
+            )}
+          </VuiBox>
+          <VuiBox
+            display="flex"
+            alignItems="center"
+            justifyContent="center"
+            width="48px"
+            height="48px"
+            borderRadius="12px"
+            sx={{ backgroundColor: `${color}20` }}
+          >
+            {React.cloneElement(icon, { sx: { color, fontSize: 24 } })}
+          </VuiBox>
+        </VuiBox>
+      </VuiBox>
+    </Card>
+  );
+
+  // Simple bar chart using CSS and LinearProgress
+  const SimpleBarChart = ({ data, color = "#4fd1c7" }) => {
+    const maxValue = Math.max(...data.map(d => d.energy));
+    
+    return (
+      <VuiBox>
+        {data.map((item, index) => (
+          <VuiBox key={index} mb={2}>
+            <VuiBox display="flex" justifyContent="space-between" alignItems="center" mb={0.5}>
+              <VuiTypography variant="caption" color="text">
+                {item.name}
+              </VuiTypography>
+              <VuiTypography variant="caption" color="white" fontWeight="medium">
+                {item.energy.toFixed(1)} kWh
+              </VuiTypography>
+            </VuiBox>
+            <LinearProgress
+              variant="determinate"
+              value={(item.energy / maxValue) * 100}
+              sx={{
+                height: 8,
+                borderRadius: 4,
+                backgroundColor: 'rgba(255,255,255,0.1)',
+                '& .MuiLinearProgress-bar': {
+                  backgroundColor: color,
+                  borderRadius: 4,
+                },
+              }}
+            />
+          </VuiBox>
+        ))}
+      </VuiBox>
+    );
   };
 
   if (loading) {
@@ -147,12 +218,13 @@ function Overview() {
   return (
     <DashboardLayout>
       <Header />
+      
+      {/* Main Content Container */}
       <VuiBox mt={5} mb={3}>
         <Grid container spacing={3}>
-          <Grid item xs={12} xl={5} xxl={6}>
-            <CarInformations vehicles={userProfile?.vehicles || []} />
-          </Grid>
-          <Grid item xs={12} xl={3} xxl={3}>
+          
+          {/* Left Column - Profile Info */}
+          <Grid item xs={12} lg={4}>
             <ProfileInfoCard
               title="Profile Information"
               description={`Welcome ${userProfile?.username || 'User'}! Manage your electric vehicle charging efficiently with our EVCS platform.`}
@@ -184,126 +256,143 @@ function Overview() {
               }}
             />
           </Grid>
-        </Grid>
-      </VuiBox>
 
-      <Grid container spacing={3} mb="30px">
-        <Grid item xs={12} xl={3} height="100%">
-          <PlatformSettings />
-        </Grid>
-        <Grid item xs={12} xl={9}>
-          <Card sx={{ height: "100%" }}>
-            <VuiBox display="flex" flexDirection="column" height="100%" p={3}>
-              <VuiBox display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-                <VuiBox>
-                  <VuiTypography color="white" variant="lg" fontWeight="bold" mb="6px">
-                    Vehicle Fleet
-                  </VuiTypography>
-                  <VuiTypography color="text" variant="button" fontWeight="regular">
-                    Manage your registered vehicles and charging history
-                  </VuiTypography>
-                </VuiBox>
-                <VuiButton
-                  variant="contained"
-                  color="info"
-                  startIcon={<AddIcon />}
-                  size="small"
-                >
-                  Add Vehicle
-                </VuiButton>
+          {/* Right Column - Analytics Dashboard */}
+          <Grid item xs={12} lg={8}>
+            <VuiBox>
+              {/* Analytics Header */}
+              <VuiBox mb={3}>
+                <VuiTypography color="white" variant="lg" fontWeight="bold" mb="6px">
+                  Charging Analytics
+                </VuiTypography>
+                <VuiTypography color="text" variant="button" fontWeight="regular" mb={3}>
+                  Your charging statistics and energy consumption overview
+                </VuiTypography>
               </VuiBox>
+              
+              {/* Metrics Cards Row */}
+              <Grid container spacing={3} mb={3}>
+                <Grid item xs={12} sm={6} lg={3}>
+                  {getMetricCard(
+                    "Total Sessions",
+                    analytics?.totalSessions || sessions.length || 0,
+                    <BarChartIcon />,
+                    "#4fd1c7",
+                    "+12% this month"
+                  )}
+                </Grid>
+                <Grid item xs={12} sm={6} lg={3}>
+                  {getMetricCard(
+                    "Energy Consumed",
+                    `${analytics?.totalEnergy || sessions.reduce((sum, s) => sum + (s.energy_consumed || 0), 0).toFixed(1)} kWh`,
+                    <FlashOnIcon />,
+                    "#ffa726",
+                    "+8% this month"
+                  )}
+                </Grid>
+                <Grid item xs={12} sm={6} lg={3}>
+                  {getMetricCard(
+                    "Total Cost",
+                    `$${analytics?.totalCost || sessions.reduce((sum, s) => sum + (s.cost || 0), 0).toFixed(2)}`,
+                    <AttachMoneyIcon />,
+                    "#f44336",
+                    "+5% this month"
+                  )}
+                </Grid>
+                <Grid item xs={12} sm={6} lg={3}>
+                  {getMetricCard(
+                    "Avg. Session",
+                    `${analytics?.avgSessionDuration || '25'} min`,
+                    <TrendingUpIcon />,
+                    "#9c27b0",
+                    "-3% this month"
+                  )}
+                </Grid>
+              </Grid>
 
-              {userProfile?.vehicles?.length > 0 ? (
-                <Grid container spacing={3}>
-                  {userProfile.vehicles.map((vehicle, index) => (
-                    <Grid item xs={12} md={6} xl={4} key={index}>
-                      <DefaultProjectCard
-                        image={getVehicleImage(index)}
-                        label={
-                          <Chip
-                            icon={getVehicleTypeIcon(vehicle.vehicleType)}
-                            label={vehicle.vehicleType || 'Electric'}
-                            color={getVehicleTypeColor(vehicle.vehicleType)}
-                            size="small"
-                            variant="outlined"
-                          />
-                        }
-                        title={vehicle.vehicleNumber || `Vehicle #${index + 1}`}
-                        description={
-                          <VuiBox>
-                            <VuiTypography variant="caption" color="text" mb={1}>
-                              Battery: {vehicle.batteryCapacity || 'N/A'}kWh | 
-                              Max Charge: {vehicle.maxChargeRate || 'N/A'}kW
-                            </VuiTypography>
-                            {vehicle.batteryLevel && (
+              {/* Charts and Sessions Row */}
+              <Grid container spacing={3}>
+                {/* Energy Consumption Chart - Reduced size */}
+                <Grid item xs={12} xl={6}>
+                  <Card sx={{ height: "100%" }}>
+                    <VuiBox p={3}>
+                      <VuiTypography color="white" variant="lg" fontWeight="bold" mb={3}>
+                        Energy Consumption Trend
+                      </VuiTypography>
+                      <VuiBox height="350px" display="flex" alignItems="center">
+                        <SimpleBarChart 
+                          data={sessions.map((session, index) => ({
+                            name: `Session ${index + 1}`,
+                            energy: session.energy_consumed || 0
+                          }))}
+                          color="#4fd1c7"
+                        />
+                      </VuiBox>
+                    </VuiBox>
+                  </Card>
+                </Grid>
+
+                {/* Recent Sessions - Increased size */}
+                <Grid item xs={12} xl={6}>
+                  <Card sx={{ height: "100%" }}>
+                    <VuiBox p={3}>
+                      <VuiTypography color="white" variant="lg" fontWeight="bold" mb={3}>
+                        Recent Sessions
+                      </VuiTypography>
+                      <VuiBox sx={{ maxHeight: "350px", overflowY: "auto" }}>
+                        {sessions.length > 0 ? (
+                          sessions.map((session, index) => (
+                            <VuiBox 
+                              key={index}
+                              display="flex" 
+                              justifyContent="space-between" 
+                              alignItems="center" 
+                              mb={2}
+                              p={2}
+                              sx={{ 
+                                backgroundColor: 'rgba(255,255,255,0.05)',
+                                borderRadius: 2,
+                                border: '1px solid rgba(255,255,255,0.1)'
+                              }}
+                            >
                               <VuiBox>
-                                <VuiTypography variant="caption" color="text" mb={0.5}>
-                                  Battery Level: {vehicle.batteryLevel}%
+                                <VuiTypography variant="button" color="white" fontWeight="medium">
+                                  {session.energy_consumed?.toFixed(1) || 'N/A'} kWh
                                 </VuiTypography>
-                                <LinearProgress
-                                  variant="determinate"
-                                  value={vehicle.batteryLevel}
-                                  sx={{
-                                    height: 6,
-                                    borderRadius: 3,
-                                    backgroundColor: 'rgba(255,255,255,0.1)',
-                                    '& .MuiLinearProgress-bar': {
-                                      backgroundColor: vehicle.batteryLevel > 50 ? '#4fd1c7' : '#ffa726',
-                                    },
-                                  }}
+                                <VuiTypography variant="caption" color="text" display="block">
+                                  {new Date(session.start_time).toLocaleDateString()}
+                                </VuiTypography>
+                              </VuiBox>
+                              <VuiBox textAlign="right">
+                                <VuiTypography variant="button" color="success" fontWeight="bold">
+                                  ${session.cost?.toFixed(2) || '0.00'}
+                                </VuiTypography>
+                                <Chip
+                                  label={session.status || 'completed'}
+                                  size="small"
+                                  color={session.status === 'completed' ? 'success' : 'default'}
+                                  sx={{ ml: 1, fontSize: '0.7rem' }}
                                 />
                               </VuiBox>
-                            )}
+                            </VuiBox>
+                          ))
+                        ) : (
+                          <VuiBox textAlign="center" py={4}>
+                            <ElectricCarIcon sx={{ fontSize: 48, color: 'rgba(255,255,255,0.3)', mb: 2 }} />
+                            <VuiTypography color="text" variant="button">
+                              No charging sessions yet
+                            </VuiTypography>
                           </VuiBox>
-                        }
-                        action={{
-                          type: "internal",
-                          route: `/vehicles/${vehicle.id || index}`,
-                          color: "white",
-                          label: "VIEW DETAILS",
-                        }}
-                        authors={[
-                          { 
-                            image: team1, 
-                            name: `${vehicle.chargingHistory?.length || 0} charges` 
-                          },
-                          { 
-                            image: team2, 
-                            name: `${vehicle.totalKwh || 0} kWh` 
-                          },
-                        ]}
-                      />
-                    </Grid>
-                  ))}
+                        )}
+                      </VuiBox>
+                    </VuiBox>
+                  </Card>
                 </Grid>
-              ) : (
-                <VuiBox 
-                  display="flex" 
-                  flexDirection="column" 
-                  alignItems="center" 
-                  justifyContent="center" 
-                  py={6}
-                >
-                  <ElectricCarIcon sx={{ fontSize: 60, color: 'rgba(255,255,255,0.3)', mb: 2 }} />
-                  <VuiTypography color="text" variant="h6" mb={1}>
-                    No vehicles registered yet
-                  </VuiTypography>
-                  <VuiTypography color="text" variant="button" textAlign="center" mb={3}>
-                    Add your first electric vehicle to start tracking your charging sessions
-                  </VuiTypography>
-                  <VuiButton
-                    variant="contained"
-                    color="info"
-                    startIcon={<AddIcon />}
-                  >
-                    Add Your First Vehicle
-                  </VuiButton>
-                </VuiBox>
-              )}
+              </Grid>
             </VuiBox>
-          </Card>
+          </Grid>
         </Grid>
-      </Grid>
+      </VuiBox>
 
       <Footer />
     </DashboardLayout>

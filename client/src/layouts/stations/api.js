@@ -22,4 +22,52 @@ api.interceptors.request.use(
   }
 );
 
+// Add response interceptor to handle authentication errors
+api.interceptors.response.use(
+  (response) => {
+    return response;
+  },
+  (error) => {
+    // If unauthorized, clear all session data
+    if (error.response && error.response.status === 401) {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('user_data');
+      // Redirect to login page if needed
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
+
+// Get user profile
+export const getUserProfile = async () => {
+  try {
+    const response = await api.get('/protected/profile');
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching user profile:', error);
+    throw error;
+  }
+};
+
+// Get charging sessions
+export const getSessions = async (params = {}) => {
+  try {
+    const queryParams = new URLSearchParams();
+    
+    if (params.station_id) queryParams.append('station_id', params.station_id);
+    if (params.status) queryParams.append('status', params.status);
+    if (params.limit) queryParams.append('limit', params.limit);
+    if (params.skip) queryParams.append('skip', params.skip);
+    
+    const url = `/api/sessions${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    const response = await api.get(url);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching sessions:', error);
+    throw error;
+  }
+};
+
 export default api;
