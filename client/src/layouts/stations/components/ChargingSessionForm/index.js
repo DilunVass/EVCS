@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import api from '../../api';
+import api, { getUserProfile } from '../../api';
 
 const ChargingSessionForm = ({ stations, onAddSession, onCancel }) => {
   const [formData, setFormData] = useState({
@@ -22,15 +22,13 @@ const ChargingSessionForm = ({ stations, onAddSession, onCancel }) => {
       try {
         setLoadingUser(true);
         const token = localStorage.getItem('access_token');
-        
         if (token) {
           try {
-            // Verify token with backend
-            const response = await api.get('/auth/me');
-            if (response.data && response.data.id) {
-              const userId = response.data.id;
-              setAuthenticatedUserId(userId);
-              setFormData(prev => ({ ...prev, user_id: userId }));
+            // Use /protected/profile to get user info
+            const profile = await getUserProfile();
+            if (profile && profile.id) {
+              setAuthenticatedUserId(profile.id);
+              setFormData(prev => ({ ...prev, user_id: profile.id }));
               setAuthStatus('authenticated');
             } else {
               throw new Error('No user data');
@@ -190,20 +188,32 @@ const ChargingSessionForm = ({ stations, onAddSession, onCancel }) => {
 
       console.log('Creating session with data:', sessionData);
       
-      // Use the configured API instance
+      // First, create the session in the database via API
       const response = await api.post('/api/sessions', sessionData);
+      console.log('Session created successfully:', response.data);
       
-      if (response.data) {
-        onAddSession(response.data);
-        // Reset form but keep user_id
-        setFormData(prev => ({
-          station_id: '',
-          slot_id: 0,
-          user_id: authenticatedUserId, // Keep authenticated user ID
-          vehicle_number: '',
-          initial_charge_level: 50
-        }));
-      }
+      // Then call the parent handler with the complete session data (including session ID)
+      const completeSessionData = {
+        ...sessionData,
+        id: response.data.id, // Add the session ID from the API response
+        status: response.data.status,
+        created_at: response.data.created_at
+      };
+      
+      onAddSession(completeSessionData);
+      
+      // Reset form but keep user_id
+      setFormData(prev => ({
+        station_id: '',
+        slot_id: 0,
+        user_id: authenticatedUserId, // Keep authenticated user ID
+        vehicle_number: '',
+        initial_charge_level: 50
+      }));
+      
+      // Show success message
+      alert('Charging session started successfully!');
+      
     } catch (error) {
       console.error('Error creating session:', error);
       
@@ -213,6 +223,13 @@ const ChargingSessionForm = ({ stations, onAddSession, onCancel }) => {
         localStorage.removeItem('access_token');
         setAuthenticatedUserId('');
         alert('Authentication failed. Please login again.');
+      } else if (error.response?.status === 400) {
+        // Validation error from API
+        const errorMessage = error.response?.data?.detail || 'Invalid session data';
+        alert(`Failed to create charging session: ${errorMessage}`);
+      } else if (error.response?.status === 409) {
+        // Conflict - slot might be occupied
+        alert('The selected slot is no longer available. Please select another slot.');
       } else if (error.response?.data?.detail) {
         alert(`Failed to create charging session: ${error.response.data.detail}`);
       } else {

@@ -68,19 +68,19 @@ export const getRoutes = () => {
       ),
       noCollapse: true,
     },
-    {
-      type: "collapse",
-      name: "Billing",
-      key: "billing",
-      route: "/billing",
-      icon: <BsCreditCardFill size="15px" color="inherit" />,
-      component: () => (
-        <ProtectedRoute>
-          <Billing />
-        </ProtectedRoute>
-      ),
-      noCollapse: true,
-    },
+    // {
+    //   type: "collapse",
+    //   name: "Billing",
+    //   key: "billing",
+    //   route: "/billing",
+    //   icon: <BsCreditCardFill size="15px" color="inherit" />,
+    //   component: () => (
+    //     <ProtectedRoute>
+    //       <Billing />
+    //     </ProtectedRoute>
+    //   ),
+    //   noCollapse: true,
+    // },
     {
       type: "collapse",
       name: "Stations",

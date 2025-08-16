@@ -514,23 +514,6 @@ const EVChargingSimulation = () => {
         <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', margin: 0 }}>EV Charging Station Simulation</h2>
         <div style={{ display: 'flex', gap: '12px' }}>
           <button 
-            onClick={() => setShowAddForm(true)}
-            style={{
-              backgroundColor: '#3b82f6',
-              color: 'white',
-              padding: '8px 16px',
-              borderRadius: '8px',
-              border: 'none',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center'
-            }}
-            onMouseOver={(e) => e.target.style.backgroundColor = '#2563eb'}
-            onMouseOut={(e) => e.target.style.backgroundColor = '#3b82f6'}
-          >
-            <span style={{ marginRight: '8px' }}>🏢</span> Add Station
-          </button>
-          <button 
             onClick={() => setShowSessionForm(true)}
             style={{
               backgroundColor: '#f59e0b',
@@ -546,23 +529,6 @@ const EVChargingSimulation = () => {
             onMouseOut={(e) => e.target.style.backgroundColor = '#f59e0b'}
           >
             <span style={{ marginRight: '8px' }}>⚡</span> Start Session
-          </button>
-          <button 
-            onClick={addNewCar}
-            style={{
-              backgroundColor: '#16a34a',
-              color: 'white',
-              padding: '8px 16px',
-              borderRadius: '8px',
-              border: 'none',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center'
-            }}
-            onMouseOver={(e) => e.target.style.backgroundColor = '#15803d'}
-            onMouseOut={(e) => e.target.style.backgroundColor = '#16a34a'}
-          >
-            <span style={{ marginRight: '8px' }}>🚗</span> Add New Vehicle
           </button>
         </div>
       </div>
@@ -882,13 +848,13 @@ const EVChargingSimulation = () => {
           </div>
         ))}
       </div>
-      
+{/*       
       {showAddForm && (
         <AddStationForm
           onAddStation={handleAddStation}
           onCancel={() => setShowAddForm(false)}
         />
-      )}
+      )} */}
       
       {showSessionForm && (
         <ChargingSessionForm
