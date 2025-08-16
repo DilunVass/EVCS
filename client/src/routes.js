@@ -42,19 +42,19 @@ const LogoutComponent = () => {
 // Dynamic routes function
 export const getRoutes = () => {
   const baseRoutes = [
-    {
-      type: "collapse",
-      name: "Dashboard",
-      key: "dashboard",
-      route: "/dashboard",
-      icon: <IoHome size="15px" color="inherit" />,
-      component: () => (
-        <ProtectedRoute>
-          <Dashboard />
-        </ProtectedRoute>
-      ),
-      noCollapse: true,
-    },
+    // {
+    //   type: "collapse",
+    //   name: "Dashboard",
+    //   key: "dashboard",
+    //   route: "/dashboard",
+    //   icon: <IoHome size="15px" color="inherit" />,
+    //   component: () => (
+    //     <ProtectedRoute>
+    //       <Dashboard />
+    //     </ProtectedRoute>
+    //   ),
+    //   noCollapse: true,
+    // },
     {
       type: "collapse",
       name: "Tables",

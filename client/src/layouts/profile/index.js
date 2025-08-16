@@ -20,6 +20,14 @@ import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import FlashOnIcon from "@mui/icons-material/FlashOn";
 import AttachMoneyIcon from "@mui/icons-material/AttachMoney";
 import Box from "@mui/material/Box";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+import DialogActions from "@mui/material/DialogActions";
+import TextField from "@mui/material/TextField";
+import MenuItem from "@mui/material/MenuItem";
+import Snackbar from "@mui/material/Snackbar";
+import CloseIcon from "@mui/icons-material/Close";
 
 // Images
 import team1 from "assets/images/avatar1.png";
@@ -44,28 +52,49 @@ import Header from "layouts/profile/components/Header";
 import { useState, useEffect } from "react";
 
 // API import
-import { getUserProfile } from "layouts/stations/api";
+import { getUserProfile, addUserVehicle, getUserVehicles } from "layouts/stations/api";
 import api from "layouts/stations/api";
 
 function Overview() {
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [analytics, setAnalytics] = useState(null);
   const [sessions, setSessions] = useState([]);
+  const [vehicles, setVehicles] = useState([]);
+  const [openVehicleDialog, setOpenVehicleDialog] = useState(false);
+  const [vehicleFormData, setVehicleFormData] = useState({
+    vehicleNumber: '',
+    vehicleType: 'electric',
+    batteryCapacity: 0,
+    maxChargeRate: 0,
+    batteryLevel: 0,
+    chargingHistory: [],
+    totalKwh: 0
+  });
+  const [submitLoading, setSubmitLoading] = useState(false);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+
+  const vehicleTypes = [
+    { value: 'electric', label: 'Electric' },
+    { value: 'hybrid', label: 'Hybrid' },
+    { value: 'plugin-hybrid', label: 'Plugin Hybrid' }
+  ];
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [profileResponse, analyticsResponse, sessionsResponse] = await Promise.all([
+        const [profileResponse, sessionsResponse] = await Promise.all([
           getUserProfile(),
-          api.get('/api/analytics'),
           api.get('/api/sessions')
         ]);
+        
         setUserProfile(profileResponse);
-        setAnalytics(analyticsResponse.data);
         setSessions(sessionsResponse.data.slice(0, 5)); // Show last 5 sessions
+        
+        // Set vehicles from profile response
+        setVehicles(profileResponse.vehicles || []);
+        
       } catch (err) {
         console.error('Error fetching data:', err);
         setError('Failed to fetch data');
@@ -77,6 +106,56 @@ function Overview() {
     fetchData();
   }, []);
 
+  const handleVehicleFormChange = (event) => {
+    const { name, value } = event.target;
+    setVehicleFormData(prev => ({
+      ...prev,
+      [name]: name === 'batteryCapacity' || name === 'maxChargeRate' || name === 'batteryLevel' || name === 'totalKwh' 
+        ? parseFloat(value) || 0 
+        : value
+    }));
+  };
+
+  const handleAddVehicle = async () => {
+    try {
+      setSubmitLoading(true);
+      const response = await addUserVehicle(vehicleFormData);
+      
+      // Refresh user profile to get updated vehicles list
+      const updatedProfile = await getUserProfile();
+      setUserProfile(updatedProfile);
+      setVehicles(updatedProfile.vehicles || []);
+      
+      // Reset form and close dialog
+      setVehicleFormData({
+        vehicleNumber: '',
+        vehicleType: 'electric',
+        batteryCapacity: 0,
+        maxChargeRate: 0,
+        batteryLevel: 0,
+        chargingHistory: [],
+        totalKwh: 0
+      });
+      setOpenVehicleDialog(false);
+      
+      // Show success message
+      setSnackbar({
+        open: true,
+        message: 'Vehicle added successfully!',
+        severity: 'success'
+      });
+    } catch (error) {
+      console.error('Error adding vehicle:', error);
+      setSnackbar({
+        open: true,
+        message: error.response?.data?.detail || 'Failed to add vehicle',
+        severity: 'error'
+      });
+    } finally {
+      setSubmitLoading(false);
+    }
+  };
+
   const getVehicleImage = (index) => {
     const images = [profile1, profile2, profile3];
     return images[index % images.length];
@@ -87,6 +166,7 @@ function Overview() {
       case 'electric':
         return <ElectricCarIcon sx={{ color: '#4fd1c7' }} />;
       case 'hybrid':
+      case 'plugin-hybrid':
         return <BatteryChargingFullIcon sx={{ color: '#ffa726' }} />;
       default:
         return <ElectricCarIcon sx={{ color: '#4fd1c7' }} />;
@@ -98,6 +178,7 @@ function Overview() {
       case 'electric':
         return 'success';
       case 'hybrid':
+      case 'plugin-hybrid':
         return 'warning';
       default:
         return 'info';
@@ -232,7 +313,8 @@ function Overview() {
                 "Full Name": userProfile?.username || "Not available",
                 "Email": userProfile?.email || "Not available",
                 "User ID": userProfile?.id || "Not available",
-                "Vehicles": `${userProfile?.vehicles?.length || 0} vehicle(s)`,
+                "Role": userProfile?.role || "User",
+                "Vehicles": `${vehicles.length || 0} vehicle(s)`,
                 "Member Since": new Date(userProfile?.createdAt || Date.now()).toLocaleDateString(),
               }}
               social={[
@@ -257,7 +339,7 @@ function Overview() {
             />
           </Grid>
 
-          {/* Right Column - Analytics Dashboard */}
+          {/* Right Column - Analytics Dashboard - Now Full Width */}
           <Grid item xs={12} lg={8}>
             <VuiBox>
               {/* Analytics Header */}
@@ -275,7 +357,7 @@ function Overview() {
                 <Grid item xs={12} sm={6} lg={3}>
                   {getMetricCard(
                     "Total Sessions",
-                    analytics?.totalSessions || sessions.length || 0,
+                    sessions.length || 0,
                     <BarChartIcon />,
                     "#4fd1c7",
                     "+12% this month"
@@ -284,7 +366,7 @@ function Overview() {
                 <Grid item xs={12} sm={6} lg={3}>
                   {getMetricCard(
                     "Energy Consumed",
-                    `${analytics?.totalEnergy || sessions.reduce((sum, s) => sum + (s.energy_consumed || 0), 0).toFixed(1)} kWh`,
+                    `${sessions.reduce((sum, s) => sum + (s.energy_consumed || 0), 0).toFixed(1)} kWh`,
                     <FlashOnIcon />,
                     "#ffa726",
                     "+8% this month"
@@ -293,7 +375,7 @@ function Overview() {
                 <Grid item xs={12} sm={6} lg={3}>
                   {getMetricCard(
                     "Total Cost",
-                    `$${analytics?.totalCost || sessions.reduce((sum, s) => sum + (s.cost || 0), 0).toFixed(2)}`,
+                    `$${sessions.reduce((sum, s) => sum + (s.cost || 0), 0).toFixed(2)}`,
                     <AttachMoneyIcon />,
                     "#f44336",
                     "+5% this month"
@@ -302,7 +384,7 @@ function Overview() {
                 <Grid item xs={12} sm={6} lg={3}>
                   {getMetricCard(
                     "Avg. Session",
-                    `${analytics?.avgSessionDuration || '25'} min`,
+                    sessions.length > 0 ? `${Math.round(sessions.reduce((sum, s) => sum + (s.duration || 25), 0) / sessions.length)} min` : "0 min",
                     <TrendingUpIcon />,
                     "#9c27b0",
                     "-3% this month"
@@ -312,27 +394,102 @@ function Overview() {
 
               {/* Charts and Sessions Row */}
               <Grid container spacing={3}>
-                {/* Energy Consumption Chart - Reduced size */}
+                {/* My Vehicles - Replaced Energy Consumption Chart */}
                 <Grid item xs={12} xl={6}>
                   <Card sx={{ height: "100%" }}>
                     <VuiBox p={3}>
-                      <VuiTypography color="white" variant="lg" fontWeight="bold" mb={3}>
-                        Energy Consumption Trend
-                      </VuiTypography>
-                      <VuiBox height="350px" display="flex" alignItems="center">
-                        <SimpleBarChart 
-                          data={sessions.map((session, index) => ({
-                            name: `Session ${index + 1}`,
-                            energy: session.energy_consumed || 0
-                          }))}
-                          color="#4fd1c7"
-                        />
+                      <VuiBox display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+                        <VuiTypography color="white" variant="lg" fontWeight="bold">
+                          My Vehicles
+                        </VuiTypography>
+                        <IconButton
+                          onClick={() => setOpenVehicleDialog(true)}
+                          sx={{ 
+                            backgroundColor: '#4fd1c7', 
+                            color: 'white',
+                            '&:hover': { backgroundColor: '#3ac7bc' }
+                          }}
+                        >
+                          <AddIcon />
+                        </IconButton>
+                      </VuiBox>
+                      
+                      <VuiBox sx={{ maxHeight: "350px", overflowY: "auto" }}>
+                        {vehicles.length > 0 ? (
+                          vehicles.map((vehicle, index) => (
+                            <VuiBox 
+                              key={vehicle.id || index}
+                              display="flex" 
+                              alignItems="center" 
+                              mb={2}
+                              p={2}
+                              sx={{ 
+                                backgroundColor: 'rgba(255,255,255,0.05)',
+                                borderRadius: 2,
+                                border: '1px solid rgba(255,255,255,0.1)'
+                              }}
+                            >
+                              {getVehicleTypeIcon(vehicle.vehicleType)}
+                              <VuiBox ml={2} flex={1}>
+                                <VuiTypography variant="button" color="white" fontWeight="medium">
+                                  {vehicle.vehicleNumber}
+                                </VuiTypography>
+                                <VuiBox display="flex" alignItems="center" mt={0.5}>
+                                  <Chip
+                                    label={vehicle.vehicleType}
+                                    size="small"
+                                    color={getVehicleTypeColor(vehicle.vehicleType)}
+                                    sx={{ fontSize: '0.7rem', mr: 1 }}
+                                  />
+                                  <VuiTypography variant="caption" color="text">
+                                    {vehicle.batteryCapacity} kWh
+                                  </VuiTypography>
+                                </VuiBox>
+                                {vehicle.batteryLevel !== undefined && (
+                                  <VuiBox mt={1}>
+                                    <VuiBox display="flex" justifyContent="space-between" alignItems="center" mb={0.5}>
+                                      <VuiTypography variant="caption" color="text">
+                                        Battery Level
+                                      </VuiTypography>
+                                      <VuiTypography variant="caption" color="white" fontWeight="medium">
+                                        {vehicle.batteryLevel}%
+                                      </VuiTypography>
+                                    </VuiBox>
+                                    <LinearProgress
+                                      variant="determinate"
+                                      value={vehicle.batteryLevel}
+                                      sx={{
+                                        height: 4,
+                                        borderRadius: 2,
+                                        backgroundColor: 'rgba(255,255,255,0.1)',
+                                        '& .MuiLinearProgress-bar': {
+                                          backgroundColor: vehicle.batteryLevel > 50 ? '#4fd1c7' : vehicle.batteryLevel > 20 ? '#ffa726' : '#f44336',
+                                          borderRadius: 2,
+                                        },
+                                      }}
+                                    />
+                                  </VuiBox>
+                                )}
+                              </VuiBox>
+                            </VuiBox>
+                          ))
+                        ) : (
+                          <VuiBox textAlign="center" py={4}>
+                            <ElectricCarIcon sx={{ fontSize: 48, color: 'rgba(255,255,255,0.3)', mb: 2 }} />
+                            <VuiTypography color="text" variant="button">
+                              No vehicles added yet
+                            </VuiTypography>
+                            <VuiTypography color="text" variant="caption" display="block" mt={1}>
+                              Click the + button to add your first vehicle
+                            </VuiTypography>
+                          </VuiBox>
+                        )}
                       </VuiBox>
                     </VuiBox>
                   </Card>
                 </Grid>
 
-                {/* Recent Sessions - Increased size */}
+                {/* Recent Sessions */}
                 <Grid item xs={12} xl={6}>
                   <Card sx={{ height: "100%" }}>
                     <VuiBox p={3}>
@@ -343,7 +500,7 @@ function Overview() {
                         {sessions.length > 0 ? (
                           sessions.map((session, index) => (
                             <VuiBox 
-                              key={index}
+                              key={session.id || index}
                               display="flex" 
                               justifyContent="space-between" 
                               alignItems="center" 
@@ -360,7 +517,7 @@ function Overview() {
                                   {session.energy_consumed?.toFixed(1) || 'N/A'} kWh
                                 </VuiTypography>
                                 <VuiTypography variant="caption" color="text" display="block">
-                                  {new Date(session.start_time).toLocaleDateString()}
+                                  {session.start_time ? new Date(session.start_time).toLocaleDateString() : 'N/A'}
                                 </VuiTypography>
                               </VuiBox>
                               <VuiBox textAlign="right">
@@ -382,6 +539,9 @@ function Overview() {
                             <VuiTypography color="text" variant="button">
                               No charging sessions yet
                             </VuiTypography>
+                            <VuiTypography color="text" variant="caption" display="block" mt={1}>
+                              Start charging to see your session history
+                            </VuiTypography>
                           </VuiBox>
                         )}
                       </VuiBox>
@@ -393,6 +553,185 @@ function Overview() {
           </Grid>
         </Grid>
       </VuiBox>
+
+      {/* Add Vehicle Dialog - remains the same */}
+      <Dialog 
+        open={openVehicleDialog} 
+        onClose={() => setOpenVehicleDialog(false)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            backgroundColor: '#1a1f37',
+            color: 'white',
+            borderRadius: 2
+          }
+        }}
+      >
+        <DialogTitle sx={{ color: 'white', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+          <VuiBox display="flex" justifyContent="space-between" alignItems="center">
+            <VuiTypography variant="h5" color="white" fontWeight="bold">
+              Add New Vehicle
+            </VuiTypography>
+            <IconButton onClick={() => setOpenVehicleDialog(false)} sx={{ color: 'white' }}>
+              <CloseIcon />
+            </IconButton>
+          </VuiBox>
+        </DialogTitle>
+        
+        <DialogContent sx={{ pt: 3 }}>
+          <Grid container spacing={3}>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Vehicle Number"
+                name="vehicleNumber"
+                value={vehicleFormData.vehicleNumber}
+                onChange={handleVehicleFormChange}
+                required
+                placeholder="e.g., ABC-1234"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    color: 'white',
+                    '& fieldset': { borderColor: 'rgba(255,255,255,0.3)' },
+                    '&:hover fieldset': { borderColor: '#4fd1c7' },
+                    '&.Mui-focused fieldset': { borderColor: '#4fd1c7' }
+                  },
+                  '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' },
+                  '& .MuiInputBase-input::placeholder': { color: 'rgba(255,255,255,0.5)' }
+                }}
+              />
+            </Grid>
+            
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                select
+                label="Vehicle Type"
+                name="vehicleType"
+                value={vehicleFormData.vehicleType}
+                onChange={handleVehicleFormChange}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    color: 'white',
+                    '& fieldset': { borderColor: 'rgba(255,255,255,0.3)' },
+                    '&:hover fieldset': { borderColor: '#4fd1c7' },
+                    '&.Mui-focused fieldset': { borderColor: '#4fd1c7' }
+                  },
+                  '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' }
+                }}
+              >
+                {vehicleTypes.map((option) => (
+                  <MenuItem key={option.value} value={option.value}>
+                    {option.label}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+            
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                type="number"
+                label="Battery Capacity (kWh)"
+                name="batteryCapacity"
+                value={vehicleFormData.batteryCapacity}
+                onChange={handleVehicleFormChange}
+                inputProps={{ min: 0, step: 0.1 }}
+                placeholder="e.g., 75.0"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    color: 'white',
+                    '& fieldset': { borderColor: 'rgba(255,255,255,0.3)' },
+                    '&:hover fieldset': { borderColor: '#4fd1c7' },
+                    '&.Mui-focused fieldset': { borderColor: '#4fd1c7' }
+                  },
+                  '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' },
+                  '& .MuiInputBase-input::placeholder': { color: 'rgba(255,255,255,0.5)' }
+                }}
+              />
+            </Grid>
+            
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                type="number"
+                label="Max Charge Rate (kW)"
+                name="maxChargeRate"
+                value={vehicleFormData.maxChargeRate}
+                onChange={handleVehicleFormChange}
+                inputProps={{ min: 0, step: 0.1 }}
+                placeholder="e.g., 150.0"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    color: 'white',
+                    '& fieldset': { borderColor: 'rgba(255,255,255,0.3)' },
+                    '&:hover fieldset': { borderColor: '#4fd1c7' },
+                    '&.Mui-focused fieldset': { borderColor: '#4fd1c7' }
+                  },
+                  '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' },
+                  '& .MuiInputBase-input::placeholder': { color: 'rgba(255,255,255,0.5)' }
+                }}
+              />
+            </Grid>
+            
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                type="number"
+                label="Current Battery Level (%)"
+                name="batteryLevel"
+                value={vehicleFormData.batteryLevel}
+                onChange={handleVehicleFormChange}
+                inputProps={{ min: 0, max: 100, step: 1 }}
+                placeholder="e.g., 80"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    color: 'white',
+                    '& fieldset': { borderColor: 'rgba(255,255,255,0.3)' },
+                    '&:hover fieldset': { borderColor: '#4fd1c7' },
+                    '&.Mui-focused fieldset': { borderColor: '#4fd1c7' }
+                  },
+                  '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' },
+                  '& .MuiInputBase-input::placeholder': { color: 'rgba(255,255,255,0.5)' }
+                }}
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        
+        <DialogActions sx={{ p: 3, borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+          <VuiButton
+            color="secondary"
+            onClick={() => setOpenVehicleDialog(false)}
+            disabled={submitLoading}
+          >
+            Cancel
+          </VuiButton>
+          <VuiButton
+            color="info"
+            onClick={handleAddVehicle}
+            disabled={submitLoading || !vehicleFormData.vehicleNumber}
+          >
+            {submitLoading ? 'Adding...' : 'Add Vehicle'}
+          </VuiButton>
+        </DialogActions>
+      </Dialog>
+
+      {/* Snackbar for notifications - remains the same */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+      >
+        <Alert 
+          onClose={() => setSnackbar({ ...snackbar, open: false })} 
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
 
       <Footer />
     </DashboardLayout>

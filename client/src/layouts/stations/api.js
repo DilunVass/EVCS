@@ -70,4 +70,26 @@ export const getSessions = async (params = {}) => {
   }
 };
 
+// Add user vehicle
+export const addUserVehicle = async (vehicleData) => {
+  try {
+    const response = await api.post('/auth/vehicle', vehicleData);
+    return response.data;
+  } catch (error) {
+    console.error('Error adding vehicle:', error);
+    throw error;
+  }
+};
+
+// Get user vehicles
+export const getUserVehicles = async () => {
+  try {
+    const response = await api.get('/auth/vehicles');
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching vehicles:', error);
+    throw error;
+  }
+};
+
 export default api;
