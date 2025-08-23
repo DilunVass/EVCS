@@ -13,6 +13,9 @@ from cryptography.fernet import Fernet
 import os
 import secrets
 import string
+import hashlib
+import hmac
+import json
 
 # Generate or get encryption key
 def get_encryption_key():
@@ -136,6 +139,10 @@ async def create_payment(payment: PaymentCreate, user_id: str) -> dict:
     try:
         current_time = datetime.utcnow()
         
+        # Generate unique reference for Flutterwave
+        import uuid
+        payment_reference = str(uuid.uuid4())
+        
         # Verify session exists and belongs to user
         try:
             session = await charging_sessions_collection.find_one({"_id": ObjectId(payment.session_id)})
@@ -171,6 +178,7 @@ async def create_payment(payment: PaymentCreate, user_id: str) -> dict:
             "payment_method": payment_method_data,
             "status": "pending",
             "transaction_id": generate_transaction_id(),
+            "reference": payment_reference,  # Add reference for webhook matching
             "encrypted_card_number": encrypted_card_number,
             "encrypted_cvv": encrypted_cvv,
             "encrypted_cardholder_name": encrypted_cardholder_name,
@@ -189,6 +197,7 @@ async def create_payment(payment: PaymentCreate, user_id: str) -> dict:
         return {
             "id": str(result.inserted_id),
             "transaction_id": new_payment["transaction_id"],
+            "reference": payment_reference,  # Return reference for frontend
             "status": "pending",
             "amount": payment.amount,
             "currency": payment.currency
@@ -339,3 +348,125 @@ async def process_refund(refund_request: RefundRequest) -> dict:
         raise e
     except Exception as e:
         raise ValueError(f"Failed to process refund: {str(e)}")
+
+def verify_flutterwave_signature(payload: str, signature: str, secret_hash: str) -> bool:
+    """Verify Flutterwave webhook signature."""
+    if not signature or not secret_hash:
+        return False
+    
+    # For Flutterwave, the signature is just the secret hash
+    return signature == secret_hash
+
+async def process_flutterwave_webhook(payload: dict) -> dict:
+    """Process Flutterwave webhook payload."""
+    try:
+        webhook_type = payload.get("type")
+        webhook_data = payload.get("data", {})
+        
+        if webhook_type == "charge.completed":
+            return await handle_charge_completed(webhook_data)
+        elif webhook_type == "charge.failed":
+            return await handle_charge_failed(webhook_data)
+        else:
+            return {"status": "ignored", "message": f"Unhandled webhook type: {webhook_type}"}
+            
+    except Exception as e:
+        print(f"Error processing Flutterwave webhook: {e}")
+        return {"status": "error", "message": str(e)}
+
+async def handle_charge_completed(charge_data: dict) -> dict:
+    """Handle successful payment completion."""
+    try:
+        reference = charge_data.get("reference")
+        amount = charge_data.get("amount")
+        currency = charge_data.get("currency")
+        status = charge_data.get("status")
+        
+        if status != "succeeded":
+            return {"status": "error", "message": "Payment not successful"}
+        
+        # Find payment by reference (you'll need to store reference in your payment)
+        payment = await payments_collection.find_one({"reference": reference})
+        if not payment:
+            return {"status": "error", "message": "Payment not found"}
+        
+        # Verify amount and currency match
+        if payment["amount"] != amount or payment["currency"] != currency:
+            return {"status": "error", "message": "Amount or currency mismatch"}
+        
+        # Update payment status
+        current_time = datetime.utcnow()
+        update_result = await payments_collection.update_one(
+            {"_id": payment["_id"]},
+            {
+                "$set": {
+                    "status": "completed",
+                    "processed_at": current_time,
+                    "updated_at": current_time,
+                    "gateway_response": {
+                        "flutterwave_id": charge_data.get("id"),
+                        "processor_response": charge_data.get("processor_response"),
+                        "payment_method": charge_data.get("payment_method")
+                    }
+                }
+            }
+        )
+        
+        if update_result.modified_count > 0:
+            # Update session payment status
+            await charging_sessions_collection.update_one(
+                {"_id": ObjectId(payment["session_id"])},
+                {"$set": {"payment_status": "completed", "updated_at": current_time}}
+            )
+            
+            return {"status": "success", "message": "Payment completed successfully"}
+        
+        return {"status": "error", "message": "Failed to update payment"}
+        
+    except Exception as e:
+        print(f"Error handling charge completed: {e}")
+        return {"status": "error", "message": str(e)}
+
+async def handle_charge_failed(charge_data: dict) -> dict:
+    """Handle failed payment."""
+    try:
+        reference = charge_data.get("reference")
+        
+        # Find payment by reference
+        payment = await payments_collection.find_one({"reference": reference})
+        if not payment:
+            return {"status": "error", "message": "Payment not found"}
+        
+        # Update payment status
+        current_time = datetime.utcnow()
+        failure_reason = charge_data.get("processor_response", {}).get("message", "Payment failed")
+        
+        update_result = await payments_collection.update_one(
+            {"_id": payment["_id"]},
+            {
+                "$set": {
+                    "status": "failed",
+                    "failure_reason": failure_reason,
+                    "updated_at": current_time,
+                    "gateway_response": {
+                        "flutterwave_id": charge_data.get("id"),
+                        "processor_response": charge_data.get("processor_response")
+                    }
+                }
+            }
+        )
+        
+        if update_result.modified_count > 0:
+            # Update session payment status
+            await charging_sessions_collection.update_one(
+                {"_id": ObjectId(payment["session_id"])},
+                {"$set": {"payment_status": "failed", "updated_at": current_time}}
+            )
+            
+            return {"status": "success", "message": "Payment failure processed"}
+        
+        return {"status": "error", "message": "Failed to update payment"}
+        
+    except Exception as e:
+        print(f"Error handling charge failed: {e}")
+        return {"status": "error", "message": str(e)}

@@ -6,15 +6,15 @@ from app.database import client
 
 app = FastAPI(title="EVCS Digital Twin API", version="1.0.0")
 
+# Get allowed origins from environment variable or use defaults
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", 
+    "http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,https://evcs-client-121646825275.us-central1.run.app,https://evcs-frontend-121646825275.us-central1.run.app"
+).split(",")
+
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",  # React dev server
-        "http://127.0.0.1:3000",
-        "http://localhost:3001",  # Alternative React port
-        "*"  
-    ],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],

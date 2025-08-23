@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, status, Query
+from fastapi import APIRouter, HTTPException, Depends, status, Query, Request
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 from app.schemas.payment import (
@@ -12,6 +12,8 @@ from app.schemas.payment import (
 from app.services import payment as payment_service
 from app.security.dependencies import get_current_user, require_admin
 from app.schemas.user import UserResponse
+import os
+import json
 
 router = APIRouter()
 
@@ -242,4 +244,78 @@ async def get_payments(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get payments: {str(e)}"
+        )
+
+@router.post("/payments/webhook/flutterwave")
+async def flutterwave_webhook(request: Request):
+    """Handle Flutterwave webhook notifications."""
+    try:
+        # Get raw body for signature verification
+        body = await request.body()
+        payload = json.loads(body.decode())
+        
+        # Get signature from headers
+        signature = request.headers.get("flutterwave-signature")
+        secret_hash = os.getenv("FLW_SECRET_HASH")
+        
+        # Verify signature
+        if not payment_service.verify_flutterwave_signature(body.decode(), signature, secret_hash):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid signature"
+            )
+        
+        # Process webhook
+        result = await payment_service.process_flutterwave_webhook(payload)
+        
+        if result["status"] == "error":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=result["message"]
+            )
+        
+        return {"message": "Webhook processed successfully", "result": result}
+        
+    except json.JSONDecodeError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid JSON payload"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Webhook processing failed: {str(e)}"
+        )
+
+@router.post("/payments/{payment_id}/verify")
+async def verify_payment_with_flutterwave(
+    payment_id: str,
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """Manually verify payment status with Flutterwave."""
+    try:
+        # Get payment from database
+        payment = await payment_service.get_payment_by_id(payment_id)
+        if not payment:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Payment not found"
+            )
+        
+        # Check if user owns the payment or is admin
+        if current_user.role != "admin" and payment["user_id"] != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied"
+            )
+        
+        # TODO: Implement Flutterwave verification API call
+        # This would make an API call to Flutterwave to verify the transaction
+        
+        return {"message": "Payment verification initiated"}
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Payment verification failed: {str(e)}"
         )

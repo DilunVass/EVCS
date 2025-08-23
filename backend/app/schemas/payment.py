@@ -28,6 +28,7 @@ class Payment(BaseModel):
     payment_method: PaymentMethod
     status: Literal["pending", "processing", "completed", "failed", "cancelled", "refunded"] = "pending"
     transaction_id: Optional[str] = None
+    reference: Optional[str] = None  # Add reference field
     gateway_response: Optional[Dict[str, Any]] = None
     failure_reason: Optional[str] = None
     processed_at: Optional[datetime] = None
@@ -102,6 +103,7 @@ class PaymentResponse(BaseModel):
     payment_method: dict
     status: str
     transaction_id: Optional[str] = None
+    reference: Optional[str] = None  # Add reference field
     failure_reason: Optional[str] = None
     processed_at: Optional[str] = None
     created_at: Optional[str] = None
