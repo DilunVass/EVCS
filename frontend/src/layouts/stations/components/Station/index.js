@@ -512,6 +512,321 @@ const EVChargingSimulation = () => {
     <div style={{ padding: '16px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
         <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', margin: 0 }}>EV Charging Station Simulation</h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '48px' }}>
+        {stations.map(station => (
+          <div key={station.id} style={{ position: 'relative' }}>
+            <div style={{ marginBottom: '8px', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+              <h3 style={{ fontSize: '1.125rem', fontWeight: '600', margin: 0 }}>{station.name}</h3>
+              <span style={{
+                fontSize: '0.875rem',
+                backgroundColor: '#dcfce7',
+                color: '#166534',
+                padding: '4px 8px',
+                borderRadius: '16px'
+              }}>
+                {station.slots.filter(slot => slot.status === 'charging').length}/{station.slots.length} Active
+              </span>
+              <span style={{
+                fontSize: '0.875rem',
+                backgroundColor: '#fef3c7',
+                color: '#92400e',
+                padding: '4px 8px',
+                borderRadius: '16px'
+              }}>
+                {station.power_output}kW
+              </span>
+              <span style={{
+                fontSize: '0.875rem',
+                backgroundColor: '#e0e7ff',
+                color: '#3730a3',
+                padding: '4px 8px',
+                borderRadius: '16px'
+              }}>
+                ${station.price_per_kwh}/kWh
+              </span>
+              <span style={{
+                fontSize: '0.875rem',
+                backgroundColor: '#f3f4f6',
+                color: '#374151',
+                padding: '4px 8px',
+                borderRadius: '16px'
+              }}>
+                📍 {station.location}
+              </span>
+            </div>
+            
+            {/* Connector types */}
+            <div style={{ marginBottom: '12px', display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+              {station.connector_types.map(type => (
+                <span key={type} style={{
+                  fontSize: '0.75rem',
+                  backgroundColor: '#f9fafb',
+                  color: '#6b7280',
+                  padding: '2px 6px',
+                  borderRadius: '12px',
+                  border: '1px solid #e5e7eb'
+                }}>
+                  {type}
+                </span>
+              ))}
+            </div>
+            
+            {/* Road */}
+            <div style={{
+              height: '128px',
+              backgroundColor: '#d1d5db',
+              borderRadius: '8px',
+              position: 'relative',
+              overflow: 'hidden',
+              marginBottom: '8px'
+            }}>
+              {/* Road markings */}
+              <div style={{
+                position: 'absolute',
+                top: '50%',
+                left: 0,
+                right: 0,
+                height: '2px',
+                borderTop: '2px dashed white'
+              }}></div>
+              
+              {/* Charging stations */}
+              <div style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                display: 'flex',
+                justifyContent: 'space-around',
+                alignItems: 'center'
+              }}>
+                {station.slots.map(slot => (
+                  <div key={slot.id} style={{ position: 'relative' }}>
+                    {/* Charging pad */}
+                    <div style={{
+                      position: 'absolute',
+                      top: '-8px',
+                      width: '80px',
+                      height: '8px',
+                      backgroundColor: '#1f2937',
+                      borderRadius: '8px 8px 0 0',
+                      left: '50%',
+                      transform: 'translateX(-50%)'
+                    }}></div>
+                    
+                    {/* Charging station */}
+                    <div style={{
+                      position: 'relative',
+                      width: '48px',
+                      height: '80px',
+                      backgroundColor: '#1f2937',
+                      borderRadius: '8px',
+                      display: 'flex',
+                      justifyContent: 'center'
+                    }}>
+                      {/* Charging connector */}
+                      {slot.car && (
+                        <div style={{
+                          position: 'absolute',
+                          width: '8px',
+                          height: '40px',
+                          backgroundColor: '#fbbf24',
+                          top: '-40px',
+                          left: '50%',
+                          transform: `translateX(-50%) scaleY(${slot.car.isPlugged ? 1 : 0})`,
+                          transition: 'all 0.3s'
+                        }}></div>
+                      )}
+                      
+                      {/* Status indicator */}
+                      <div style={{
+                        width: '16px',
+                        height: '16px',
+                        borderRadius: '50%',
+                        marginTop: '8px',
+                        backgroundColor: slot.status === 'available' ? '#10b981' : 
+                                      slot.status === 'charging' ? '#3b82f6' : 
+                                      slot.status === 'arriving' ? '#f59e0b' : '#6b7280',
+                        animation: slot.status === 'charging' ? 'pulse 2s infinite' : 'none'
+                      }}></div>
+                      
+                      {/* Slot number */}
+                      <div style={{
+                        position: 'absolute',
+                        bottom: '8px',
+                        color: 'white',
+                        fontWeight: '600'
+                      }}>{slot.id}</div>
+                      
+                      {/* Charge level */}
+                      {slot.car && slot.car.isPlugged && (
+                        <div style={{
+                          position: 'absolute',
+                          right: '-64px',
+                          top: 0,
+                          width: '56px',
+                          backgroundColor: 'white',
+                          borderRadius: '8px',
+                          padding: '4px',
+                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                        }}>
+                          <div style={{ fontSize: '0.75rem', fontWeight: '500', marginBottom: '4px', textAlign: 'center' }}>Charge</div>
+                          <div style={{ width: '100%', backgroundColor: '#e5e7eb', borderRadius: '16px', height: '8px' }}>
+                            <div style={{
+                              backgroundColor: '#16a34a',
+                              height: '8px',
+                              borderRadius: '16px',
+                              width: `${slot.car.chargeLevel}%`
+                            }}></div>
+                          </div>
+                          <div style={{ fontSize: '0.75rem', textAlign: 'center', marginTop: '4px' }}>{Math.round(slot.car.chargeLevel)}%</div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              {/* Cars at charging stations */}
+              {station.slots.map(slot => slot.car && (
+                <div 
+                  key={`station-${station.id}-slot-${slot.id}-car`}
+                  style={{
+                    position: 'absolute',
+                    top: '50%',
+                    left: `${slot.id * (100/(station.slots.length + 1))}%`,
+                    transform: 'translateY(-50%) translateX(-50%)',
+                    zIndex: 10,
+                    transition: 'all 0.3s'
+                  }}
+                >
+                  <Car color={slot.car.color} />
+                </div>
+              ))}
+              
+              {/* Incoming cars */}
+              {incomingCars
+                .filter(car => car.destination.stationId === station.id)
+                .map(car => (
+                  <div 
+                    key={car.id}
+                    style={{
+                      position: 'absolute',
+                      top: '50%',
+                      left: car.direction === 'right' ? `${car.position}%` : `${car.position}%`,
+                      transform: `translateY(-50%) scaleX(${car.direction === 'left' ? -1 : 1})`,
+                      zIndex: 5,
+                      transition: 'all 0.05s'
+                    }}
+                  >
+                    <Car color={car.color} />
+                    <div style={{
+                      position: 'absolute',
+                      top: '-32px',
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      backgroundColor: 'white',
+                      borderRadius: '8px',
+                      padding: '4px 8px',
+                      fontSize: '0.75rem',
+                      boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center' }}>
+                        <span style={{ marginRight: '4px' }}>🔋</span>
+                        <span>{car.chargeLevel}%</span>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              }
+              
+              {/* Departing cars */}
+              {departingCars
+                .map(car => (
+                  <div 
+                    key={car.id}
+                    style={{
+                      position: 'absolute',
+                      top: '50%',
+                      left: `${car.position}%`,
+                      transform: `translateY(-50%) scaleX(${car.direction === 'left' ? -1 : 1})`,
+                      zIndex: 5,
+                      transition: 'all 0.05s'
+                    }}
+                  >
+                    <Car color={car.color} />
+                    <div style={{
+                      position: 'absolute',
+                      top: '-32px',
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      backgroundColor: 'white',
+                      borderRadius: '8px',
+                      padding: '4px 8px',
+                      fontSize: '0.75rem',
+                      boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center' }}>
+                        <span style={{ marginRight: '4px' }}>🔋</span>
+                        <span>100%</span>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              }
+            </div>
+            
+            {/* Station info */}
+            <div style={{ display: 'grid', gridTemplateColumns: `repeat(${station.slots.length}, 1fr)`, gap: '16px' }}>
+              {station.slots.map(slot => (
+                <div 
+                  key={`info-${station.id}-${slot.id}`} 
+                  style={{
+                    backgroundColor: 'white',
+                    padding: '12px',
+                    borderRadius: '8px',
+                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+                    border: '1px solid #f3f4f6'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <div style={{ fontWeight: '500' }}>Slot #{slot.id}</div>
+                    <div style={{
+                      width: '12px',
+                      height: '12px',
+                      borderRadius: '50%',
+                      backgroundColor: slot.status === 'available' ? '#10b981' : 
+                                    slot.status === 'charging' ? '#3b82f6' : 
+                                    slot.status === 'arriving' ? '#f59e0b' : '#6b7280'
+                    }}></div>
+                  </div>
+                  
+                  <div style={{ fontSize: '0.875rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <span style={{ color: '#6b7280' }}>Status:</span>
+                      <span style={{ textTransform: 'capitalize' }}>{slot.status}</span>
+                    </div>
+                    
+                    {slot.car && (
+                      <>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                          <span style={{ color: '#6b7280' }}>Connected:</span>
+                          <span>{slot.car.isPlugged ? 'Yes' : 'No'}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ color: '#6b7280' }}>Charge:</span>
+                          <span>{Math.round(slot.car.chargeLevel)}%</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
         <div style={{ display: 'flex', gap: '12px' }}>
           <button 
             onClick={() => setShowAddForm(true)}
@@ -565,6 +880,321 @@ const EVChargingSimulation = () => {
             <span style={{ marginRight: '8px' }}>🚗</span> Add New Vehicle
           </button>
         </div>
+      </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '48px' }}>
+        {stations.map(station => (
+          <div key={station.id} style={{ position: 'relative' }}>
+            <div style={{ marginBottom: '8px', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+              <h3 style={{ fontSize: '1.125rem', fontWeight: '600', margin: 0 }}>{station.name}</h3>
+              <span style={{
+                fontSize: '0.875rem',
+                backgroundColor: '#dcfce7',
+                color: '#166534',
+                padding: '4px 8px',
+                borderRadius: '16px'
+              }}>
+                {station.slots.filter(slot => slot.status === 'charging').length}/{station.slots.length} Active
+              </span>
+              <span style={{
+                fontSize: '0.875rem',
+                backgroundColor: '#fef3c7',
+                color: '#92400e',
+                padding: '4px 8px',
+                borderRadius: '16px'
+              }}>
+                {station.power_output}kW
+              </span>
+              <span style={{
+                fontSize: '0.875rem',
+                backgroundColor: '#e0e7ff',
+                color: '#3730a3',
+                padding: '4px 8px',
+                borderRadius: '16px'
+              }}>
+                ${station.price_per_kwh}/kWh
+              </span>
+              <span style={{
+                fontSize: '0.875rem',
+                backgroundColor: '#f3f4f6',
+                color: '#374151',
+                padding: '4px 8px',
+                borderRadius: '16px'
+              }}>
+                📍 {station.location}
+              </span>
+            </div>
+            
+            {/* Connector types */}
+            <div style={{ marginBottom: '12px', display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+              {station.connector_types.map(type => (
+                <span key={type} style={{
+                  fontSize: '0.75rem',
+                  backgroundColor: '#f9fafb',
+                  color: '#6b7280',
+                  padding: '2px 6px',
+                  borderRadius: '12px',
+                  border: '1px solid #e5e7eb'
+                }}>
+                  {type}
+                </span>
+              ))}
+            </div>
+            
+            {/* Road */}
+            <div style={{
+              height: '128px',
+              backgroundColor: '#d1d5db',
+              borderRadius: '8px',
+              position: 'relative',
+              overflow: 'hidden',
+              marginBottom: '8px'
+            }}>
+              {/* Road markings */}
+              <div style={{
+                position: 'absolute',
+                top: '50%',
+                left: 0,
+                right: 0,
+                height: '2px',
+                borderTop: '2px dashed white'
+              }}></div>
+              
+              {/* Charging stations */}
+              <div style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                display: 'flex',
+                justifyContent: 'space-around',
+                alignItems: 'center'
+              }}>
+                {station.slots.map(slot => (
+                  <div key={slot.id} style={{ position: 'relative' }}>
+                    {/* Charging pad */}
+                    <div style={{
+                      position: 'absolute',
+                      top: '-8px',
+                      width: '80px',
+                      height: '8px',
+                      backgroundColor: '#1f2937',
+                      borderRadius: '8px 8px 0 0',
+                      left: '50%',
+                      transform: 'translateX(-50%)'
+                    }}></div>
+                    
+                    {/* Charging station */}
+                    <div style={{
+                      position: 'relative',
+                      width: '48px',
+                      height: '80px',
+                      backgroundColor: '#1f2937',
+                      borderRadius: '8px',
+                      display: 'flex',
+                      justifyContent: 'center'
+                    }}>
+                      {/* Charging connector */}
+                      {slot.car && (
+                        <div style={{
+                          position: 'absolute',
+                          width: '8px',
+                          height: '40px',
+                          backgroundColor: '#fbbf24',
+                          top: '-40px',
+                          left: '50%',
+                          transform: `translateX(-50%) scaleY(${slot.car.isPlugged ? 1 : 0})`,
+                          transition: 'all 0.3s'
+                        }}></div>
+                      )}
+                      
+                      {/* Status indicator */}
+                      <div style={{
+                        width: '16px',
+                        height: '16px',
+                        borderRadius: '50%',
+                        marginTop: '8px',
+                        backgroundColor: slot.status === 'available' ? '#10b981' : 
+                                      slot.status === 'charging' ? '#3b82f6' : 
+                                      slot.status === 'arriving' ? '#f59e0b' : '#6b7280',
+                        animation: slot.status === 'charging' ? 'pulse 2s infinite' : 'none'
+                      }}></div>
+                      
+                      {/* Slot number */}
+                      <div style={{
+                        position: 'absolute',
+                        bottom: '8px',
+                        color: 'white',
+                        fontWeight: '600'
+                      }}>{slot.id}</div>
+                      
+                      {/* Charge level */}
+                      {slot.car && slot.car.isPlugged && (
+                        <div style={{
+                          position: 'absolute',
+                          right: '-64px',
+                          top: 0,
+                          width: '56px',
+                          backgroundColor: 'white',
+                          borderRadius: '8px',
+                          padding: '4px',
+                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                        }}>
+                          <div style={{ fontSize: '0.75rem', fontWeight: '500', marginBottom: '4px', textAlign: 'center' }}>Charge</div>
+                          <div style={{ width: '100%', backgroundColor: '#e5e7eb', borderRadius: '16px', height: '8px' }}>
+                            <div style={{
+                              backgroundColor: '#16a34a',
+                              height: '8px',
+                              borderRadius: '16px',
+                              width: `${slot.car.chargeLevel}%`
+                            }}></div>
+                          </div>
+                          <div style={{ fontSize: '0.75rem', textAlign: 'center', marginTop: '4px' }}>{Math.round(slot.car.chargeLevel)}%</div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              {/* Cars at charging stations */}
+              {station.slots.map(slot => slot.car && (
+                <div 
+                  key={`station-${station.id}-slot-${slot.id}-car`}
+                  style={{
+                    position: 'absolute',
+                    top: '50%',
+                    left: `${slot.id * (100/(station.slots.length + 1))}%`,
+                    transform: 'translateY(-50%) translateX(-50%)',
+                    zIndex: 10,
+                    transition: 'all 0.3s'
+                  }}
+                >
+                  <Car color={slot.car.color} />
+                </div>
+              ))}
+              
+              {/* Incoming cars */}
+              {incomingCars
+                .filter(car => car.destination.stationId === station.id)
+                .map(car => (
+                  <div 
+                    key={car.id}
+                    style={{
+                      position: 'absolute',
+                      top: '50%',
+                      left: car.direction === 'right' ? `${car.position}%` : `${car.position}%`,
+                      transform: `translateY(-50%) scaleX(${car.direction === 'left' ? -1 : 1})`,
+                      zIndex: 5,
+                      transition: 'all 0.05s'
+                    }}
+                  >
+                    <Car color={car.color} />
+                    <div style={{
+                      position: 'absolute',
+                      top: '-32px',
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      backgroundColor: 'white',
+                      borderRadius: '8px',
+                      padding: '4px 8px',
+                      fontSize: '0.75rem',
+                      boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center' }}>
+                        <span style={{ marginRight: '4px' }}>🔋</span>
+                        <span>{car.chargeLevel}%</span>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              }
+              
+              {/* Departing cars */}
+              {departingCars
+                .map(car => (
+                  <div 
+                    key={car.id}
+                    style={{
+                      position: 'absolute',
+                      top: '50%',
+                      left: `${car.position}%`,
+                      transform: `translateY(-50%) scaleX(${car.direction === 'left' ? -1 : 1})`,
+                      zIndex: 5,
+                      transition: 'all 0.05s'
+                    }}
+                  >
+                    <Car color={car.color} />
+                    <div style={{
+                      position: 'absolute',
+                      top: '-32px',
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      backgroundColor: 'white',
+                      borderRadius: '8px',
+                      padding: '4px 8px',
+                      fontSize: '0.75rem',
+                      boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center' }}>
+                        <span style={{ marginRight: '4px' }}>🔋</span>
+                        <span>100%</span>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              }
+            </div>
+            
+            {/* Station info */}
+            <div style={{ display: 'grid', gridTemplateColumns: `repeat(${station.slots.length}, 1fr)`, gap: '16px' }}>
+              {station.slots.map(slot => (
+                <div 
+                  key={`info-${station.id}-${slot.id}`} 
+                  style={{
+                    backgroundColor: 'white',
+                    padding: '12px',
+                    borderRadius: '8px',
+                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+                    border: '1px solid #f3f4f6'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <div style={{ fontWeight: '500' }}>Slot #{slot.id}</div>
+                    <div style={{
+                      width: '12px',
+                      height: '12px',
+                      borderRadius: '50%',
+                      backgroundColor: slot.status === 'available' ? '#10b981' : 
+                                    slot.status === 'charging' ? '#3b82f6' : 
+                                    slot.status === 'arriving' ? '#f59e0b' : '#6b7280'
+                    }}></div>
+                  </div>
+                  
+                  <div style={{ fontSize: '0.875rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <span style={{ color: '#6b7280' }}>Status:</span>
+                      <span style={{ textTransform: 'capitalize' }}>{slot.status}</span>
+                    </div>
+                    
+                    {slot.car && (
+                      <>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                          <span style={{ color: '#6b7280' }}>Connected:</span>
+                          <span>{slot.car.isPlugged ? 'Yes' : 'No'}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ color: '#6b7280' }}>Charge:</span>
+                          <span>{Math.round(slot.car.chargeLevel)}%</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
       
       <div style={{ display: 'flex', flexDirection: 'column', gap: '48px' }}>
