@@ -574,15 +574,6 @@ const EVChargingSimulation = () => {
               <h3 style={{ fontSize: '1.125rem', fontWeight: '600', margin: 0 }}>{station.name}</h3>
               <span style={{
                 fontSize: '0.875rem',
-                backgroundColor: '#dcfce7',
-                color: '#166534',
-                padding: '4px 8px',
-                borderRadius: '16px'
-              }}>
-                {station.slots.filter(slot => slot.status === 'charging').length}/{station.slots.length} Active
-              </span>
-              <span style={{
-                fontSize: '0.875rem',
                 backgroundColor: '#fef3c7',
                 color: '#92400e',
                 padding: '4px 8px',
@@ -598,15 +589,6 @@ const EVChargingSimulation = () => {
                 borderRadius: '16px'
               }}>
                 ${station.price_per_kwh}/kWh
-              </span>
-              <span style={{
-                fontSize: '0.875rem',
-                backgroundColor: '#f3f4f6',
-                color: '#374151',
-                padding: '4px 8px',
-                borderRadius: '16px'
-              }}>
-                📍 {station.location}
               </span>
             </div>
             
@@ -760,41 +742,6 @@ const EVChargingSimulation = () => {
                 </div>
               ))}
               
-              {/* Incoming cars */}
-              {incomingCars
-                .filter(car => car.destination.stationId === station.id)
-                .map(car => (
-                  <div 
-                    key={car.id}
-                    style={{
-                      position: 'absolute',
-                      top: '50%',
-                      left: car.direction === 'right' ? `${car.position}%` : `${car.position}%`,
-                      transform: `translateY(-50%) scaleX(${car.direction === 'left' ? -1 : 1})`,
-                      zIndex: 5,
-                      transition: 'all 0.05s'
-                    }}
-                  >
-                    <Car color={car.color} />
-                    <div style={{
-                      position: 'absolute',
-                      top: '-32px',
-                      left: '50%',
-                      transform: 'translateX(-50%)',
-                      backgroundColor: 'white',
-                      borderRadius: '8px',
-                      padding: '4px 8px',
-                      fontSize: '0.75rem',
-                      boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center' }}>
-                        <span style={{ marginRight: '4px' }}>🔋</span>
-                        <span>{car.chargeLevel}%</span>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              }
               
               {/* Departing cars */}
               {departingCars
