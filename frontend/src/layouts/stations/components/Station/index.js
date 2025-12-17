@@ -512,61 +512,7 @@ const EVChargingSimulation = () => {
     <div style={{ padding: '16px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
         <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', margin: 0 }}>EV Charging Station Simulation</h2>
-        <div style={{ display: 'flex', gap: '12px' }}>
-          <button 
-            onClick={() => setShowAddForm(true)}
-            style={{
-              backgroundColor: '#3b82f6',
-              color: 'white',
-              padding: '8px 16px',
-              borderRadius: '8px',
-              border: 'none',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center'
-            }}
-            onMouseOver={(e) => e.target.style.backgroundColor = '#2563eb'}
-            onMouseOut={(e) => e.target.style.backgroundColor = '#3b82f6'}
-          >
-            <span style={{ marginRight: '8px' }}>🏢</span> Add Station
-          </button>
-          <button 
-            onClick={() => setShowSessionForm(true)}
-            style={{
-              backgroundColor: '#f59e0b',
-              color: 'white',
-              padding: '8px 16px',
-              borderRadius: '8px',
-              border: 'none',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center'
-            }}
-            onMouseOver={(e) => e.target.style.backgroundColor = '#d97706'}
-            onMouseOut={(e) => e.target.style.backgroundColor = '#f59e0b'}
-          >
-            <span style={{ marginRight: '8px' }}>⚡</span> Start Session
-          </button>
-          <button 
-            onClick={addNewCar}
-            style={{
-              backgroundColor: '#16a34a',
-              color: 'white',
-              padding: '8px 16px',
-              borderRadius: '8px',
-              border: 'none',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center'
-            }}
-            onMouseOver={(e) => e.target.style.backgroundColor = '#15803d'}
-            onMouseOut={(e) => e.target.style.backgroundColor = '#16a34a'}
-          >
-            <span style={{ marginRight: '8px' }}>🚗</span> Add New Vehicle
-          </button>
-        </div>
-      </div>
-      
+
       <div style={{ display: 'flex', flexDirection: 'column', gap: '48px' }}>
         {stations.map(station => (
           <div key={station.id} style={{ position: 'relative' }}>
@@ -882,6 +828,63 @@ const EVChargingSimulation = () => {
           </div>
         ))}
       </div>
+
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <button 
+            onClick={() => setShowAddForm(true)}
+            style={{
+              backgroundColor: '#3b82f6',
+              color: 'white',
+              padding: '8px 16px',
+              borderRadius: '8px',
+              border: 'none',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center'
+            }}
+            onMouseOver={(e) => e.target.style.backgroundColor = '#2563eb'}
+            onMouseOut={(e) => e.target.style.backgroundColor = '#3b82f6'}
+          >
+            <span style={{ marginRight: '8px' }}>🏢</span> Add Station
+          </button>
+          <button 
+            onClick={() => setShowSessionForm(true)}
+            style={{
+              backgroundColor: '#f59e0b',
+              color: 'white',
+              padding: '8px 16px',
+              borderRadius: '8px',
+              border: 'none',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center'
+            }}
+            onMouseOver={(e) => e.target.style.backgroundColor = '#d97706'}
+            onMouseOut={(e) => e.target.style.backgroundColor = '#f59e0b'}
+          >
+            <span style={{ marginRight: '8px' }}>⚡</span> Start Session
+          </button>
+          <button 
+            onClick={addNewCar}
+            style={{
+              backgroundColor: '#16a34a',
+              color: 'white',
+              padding: '8px 16px',
+              borderRadius: '8px',
+              border: 'none',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center'
+            }}
+            onMouseOver={(e) => e.target.style.backgroundColor = '#15803d'}
+            onMouseOut={(e) => e.target.style.backgroundColor = '#16a34a'}
+          >
+            <span style={{ marginRight: '8px' }}>🚗</span> Add New Vehicle
+          </button>
+        </div>
+      </div>
+      
+
       
       {showAddForm && (
         <AddStationForm
