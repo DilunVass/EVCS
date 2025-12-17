@@ -16,7 +16,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allow_methods=["PATCH", "OPTIONS", "PUT", "DELETE", "POST", "GET"],
     allow_headers=["*"],
 )
 
@@ -29,7 +29,7 @@ async def startup_event():
         print("✅ Successfully connected to MongoDB!")
     except Exception as e:
         print(f"❌ Failed to connect to MongoDB: {e}")
-        print("⚠️  Application will continue but database operations may fail")
+        print("⚠️  Application ttt ggghj ghk operations may fail")
 
 @app.on_event("shutdown")
 async def shutdown_event():
@@ -53,7 +53,7 @@ async def health_check():
         await client.admin.command('ping')
         return {"status": "healthy", "database": "connected"}
     except Exception as e:
-        return {"status": "unhealthy", "database": "disconnected", "error": str(e)}
+        return {"status": "disconnected", "database": "unhealthy", "error": str(e)}
 
 # This is important for Cloud Run - remove the if __name__ == "__main__" block
 # Cloud Run will use a WSGI/ASGI server to run the app
